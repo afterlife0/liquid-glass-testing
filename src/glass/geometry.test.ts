@@ -18,13 +18,14 @@ describe('concentricity (§4)', () => {
 });
 
 describe('bevel is a fraction, never a constant', () => {
-  it('reaches ~3/4 of the way to the centre of a control', () => {
-    expect(bevelThickness(22, 22, 22)).toBeCloseTo(16.5);   // 44px button
-    expect(bevelThickness(98, 30, 30)).toBeCloseTo(22.5);   // 60px capsule
+  it('keeps a flat middle on a 44px button', () => {
+    const t = bevelThickness(22, 22, 22);
+    expect(t).toBeCloseTo(9.68);
+    expect(t).toBeLessThan(22 * 0.5);
   });
-  it('never exceeds the corner radius (bug #1 seam) or the cap', () => {
-    expect(bevelThickness(200, 100, 20)).toBe(20);
-    expect(bevelThickness(400, 300, 300)).toBe(30);
+  it('caps at 16px and never exceeds the corner radius (bug #1 seam)', () => {
+    expect(bevelThickness(200, 100, 20)).toBe(16);
+    expect(bevelThickness(200, 100, 9)).toBe(9);
   });
 });
 
@@ -49,25 +50,36 @@ describe('baked shadow field', () => {
   });
 });
 
-describe('each edge pulls in what lies just beyond it', () => {
-  const T = 22;
-  it('passes the middle through at true size — no magnification', () => {
+describe('all bending is at the rim', () => {
+  const T = 11;
+  it('passes the flat middle through at true size — no magnification', () => {
     for (const u of [T, T + 5, 60]) expect(rimSample(u, T)).toBe(u);
   });
-  it('shows content from OUTSIDE across most of the band', () => {
-    expect(rimSample(0, T)).toBeCloseTo(-0.75 * T);
-    expect(rimSample(0.5 * T, T)).toBeLessThan(0);
+  it('meets the flat middle smoothly: no offset and no slope at the bevel edge (bug #1)', () => {
+    const slope = (rimSample(T - 1e-3, T) - rimSample(T - 2e-3, T)) / 1e-3;
+    expect(rimSample(T, T)).toBe(T);
+    expect(slope).toBeCloseTo(1, 3);
   });
-  it('keeps pulled-in content near its real size (1:1 across the plateau)', () => {
-    const slope = (rimSample(0.2 * T + 0.01, T) - rimSample(0.2 * T, T)) / 0.01;
-    expect(slope).toBeCloseTo(1, 5);
+  it('bends both ways: the outer sliver pulls in what lies beyond the rim', () => {
+    expect(rimSample(0, T)).toBeLessThan(-T);            // samples > one bevel OUTSIDE the element
+    expect(rimSample(0.1 * T, T)).toBeLessThan(0);        // still outside just inside the rim
   });
-  it('never mirrors: the mapping is monotone', () => {
-    for (let u = 0; u < T; u += 0.05) expect(rimSample(u + 0.05, T)).toBeGreaterThan(rimSample(u, T));
+  it('…and the band behind it samples inward and folds', () => {
+    const inward = rimSample(0.3 * T, T) - 0.3 * T;      // offset relative to the pixel itself
+    expect(inward).toBeGreaterThan(0.5 * T);
+    // folded: somewhere in the band the mapping runs backwards (mirrored content)
+    let folds = false;
+    for (let u = 0; u < T; u += 0.05) if (rimSample(u + 0.05, T) < rimSample(u, T)) folds = true;
+    expect(folds).toBe(true);
   });
-  it('returns to the middle with zero offset and zero slope (bug #1)', () => {
-    expect(rimBend(1)).toBeCloseTo(0, 12);
-    expect(Math.abs(rimBend(0.999))).toBeLessThan(1e-5);
-    for (let i = 0; i < 1000; i++) expect(Math.abs(rimBend((i + 1) / 1000) - rimBend(i / 1000))).toBeLessThan(0.01);
+});
+
+describe('signed rim profile is smooth (bug #1)', () => {
+  it('has no jump anywhere across the bevel', () => {
+    for (let i = 0; i < 1000; i++) expect(Math.abs(rimBend((i + 1) / 1000) - rimBend(i / 1000))).toBeLessThan(0.02);
+  });
+  it('fades to exactly zero with zero slope at the inner edge', () => {
+    expect(rimBend(1)).toBe(0);
+    expect(Math.abs(rimBend(0.999))).toBeLessThan(1e-6);
   });
 });

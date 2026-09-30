@@ -103,13 +103,14 @@ with an old driver, and OS-level GPU usage readings. The HUD's frame counter is 
   lens follows each shape after a split, and `uWd` carries flick direction/anisotropy (§5 lists flick; the §3
   shader had no input for it).
 - **Refraction profile, matched to the reference frames** (the brief's smoothstep bevel read as a soft shading shift):
-  - *Each edge pulls in what lies just beyond it*: the top band shows what is above the glass, the bottom band what
-    is below, each end what is beside it — so anything crossing the glass kinks one way at one edge and the other way
-    at the opposite edge. The profile is a **plateau**: a constant outward shift of `0.75 × band` across the outer part
-    of the band (pulled-in content keeps roughly its real size, as in the reference), then a smooth return to the
-    true-size middle — monotone (never mirrors), zero offset and slope where it meets the middle (no seam).
-  - *Deep band*: `min(75% of the half-size, corner radius, 30px)`; the corner-radius cap keeps the normal's
-    side-switch out of the band (no diagonal seams).
+  - *All bending at the rim, none in the middle, and it bends both ways*: the flat middle passes the backdrop through
+    at **true size**. Across the bevel the offset is signed (`rimBend` in `geometry.ts`, mirrored in the shader):
+    the outer sliver samples up to `1.3 × bevel` *outside* the element, pulling in what lies past the edge (from the
+    blurred source, so it reads soft instead of aliasing); behind it the band samples *inward* and folds, carrying
+    content from deeper inside out to the rim. Each lobe fades with a cubic, so neither the flip nor the bevel's
+    inner edge draws a line.
+  - *Wider bend band*: `min(22% of size, 16px)` instead of the brief's `min(20%, 11px)` — with the middle unmagnified
+    all the optics live in this band, and at 11px it read as a hairline. Every element keeps a flat middle.
   - *Clear sampling*: controls, toolbars and cards (≤160px min-dimension) sample a half-res source with a light
     3px gaussian; only large surfaces take the heavy blur, now 10px instead of 15px.
   - *Hairline rim, lit on both diagonals* (bright top-left, softer bottom-right), DPR-scaled.
