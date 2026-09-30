@@ -22,8 +22,8 @@ body { background: #dfe1e5; color: #111; }
   display: flex; gap: 2px; padding: 6px; height: 60px; align-items: center;
 }
 .lab-tab {
-  height: 48px; min-width: 58px; padding: 0 10px; border: 0; border-radius: 24px; background: transparent;
-  font: 600 13px var(--font); color: #111; cursor: pointer;
+  height: 48px; min-width: 48px; padding: 0 8px; border: 0; border-radius: 24px; background: transparent;
+  font: 600 12.5px var(--font); color: #111; cursor: pointer;
 }
 .lab-tab.on { background: #111; color: #fff; } /* solid fill expresses state */
 @media (max-width: 759px) {
@@ -33,3 +33,5 @@ body { background: #dfe1e5; color: #111; }
 /* Tier B fallback on the lab's light scenes (the app's frost token is dark). */
 .lab .glass.tier-frost { background: rgba(250, 250, 252, 0.55); border-color: rgba(255, 255, 255, 0.7); }
 .lab .glass.tier-frost.light-ink { background: rgba(255, 255, 255, 0.18); }
+
+.lab-glyph { font: 300 40px/1 var(--font); }

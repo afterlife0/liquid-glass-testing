@@ -17,7 +17,7 @@ uniform int   uN;           // shape count (1..4)
 uniform float uK;           // smooth-union radius — the "liquid"
 uniform float uNexp;        // 2.0 = circular corner, 3.4 = superellipse
 uniform float uThick, uRefr, uPress, uMelt, uClear, uTime;
-uniform float uEdge;        // rim bend scale, device px (≈ the bevel)
+uniform float uEdge;        // outward reach at the rim, device px
 uniform float uPx;          // device px per CSS px — keeps the rim hairline thin at any DPR
 uniform float uWK, uWW, uWS, uHoldR;
 uniform float uWGain;       // wave gain: offsets the 1/dpr of a device-px gradient; applied after the life floor
@@ -105,22 +105,17 @@ void main() {
   }
   float inside = smoothstep(1.2, -1.2, d);
 
-  // ── surface: ALL THE BENDING IS AT THE RIM, AND IT BENDS BOTH WAYS.
-  //    The flat middle passes the backdrop through at true size (no lens).
-  //    Across the bevel the sample offset is signed (units of uEdge ≈ the bevel):
-  //      • outer sliver (t < RIM_OUT_BAND): samples OUTSIDE the element, up to
-  //        RIM_OUT × the bevel beyond the rim — what lies past the edge is pulled
-  //        in and compressed into it (the dune crest wrapped into the cap);
-  //      • behind it: samples INWARD, up to ~0.7× the bevel, folding content
-  //        from deeper inside out toward the rim (the yellow carried to the top).
-  //    Each lobe fades out with a cubic — zero value, slope and curvature where
-  //    it ends — so neither the flip nor the bevel's inner edge draws a line (bug #1).
-  const float RIM_OUT = 1.3, RIM_IN = 2.6, RIM_OUT_BAND = 0.3;
-  float t  = clamp(-d/uThick, 0.0, 1.0);
-  float w  = 1.0 - t;
-  float wo = max(0.0, 1.0 - t/RIM_OUT_BAND);
-  float bend = RIM_IN * w*w*w * smoothstep(0.05, 0.4, t) - RIM_OUT * wo*wo*wo;
-  vec2 offEdge = -nrm * (uEdge * bend);   // −nrm = inward; bend < 0 samples outside
+  // ── surface: EVERY EDGE PULLS IN WHAT LIES BEYOND IT. Measured on the
+  //    reference frames: the top band shows what is above the glass, the bottom
+  //    band what is below, each end what is beside it — and the band is WIDE,
+  //    reaching most of the way to the centre (uThick ≈ 0.7 × the half-height).
+  //    The middle passes the backdrop through at true size (no lens).
+  //    Offset is outward, uEdge × (1 − smoothstep(t)): largest at the rim, zero
+  //    with zero slope where the band meets the middle (no seam, bug #1). The
+  //    mapping stays monotone — outside content is compressed in, never mirrored.
+  float t = clamp(-d/uThick, 0.0, 1.0);
+  float w = 1.0 - t*t*(3.0 - 2.0*t);          // 1 at the rim → 0 at the band's inner edge
+  vec2 offEdge = nrm * (uEdge * w);           // nrm points outward
 
   vec2 wg = waveGrad(p, cen, hb);
   if (uHold.z > 0.002) {                               // press-and-hold dimple
@@ -147,11 +142,11 @@ void main() {
   } else g = (uClear > 0.5) ? texture(uSharp, uv + off/uRes).rgb
                             : texture(uPre,   uv + off/uRes).rgb;
 
-  // The outer sliver squeezes ~1.3 bevels of what lies beyond the rim into a
-  // few pixels; from the sharp source that aliases into dotted fringes. Take
-  // it from the blurred source there — pulled-in content reads soft. One
+  // Near the rim a lot of outside content is squeezed into few pixels; from the
+  // sharp source that aliases into dotted fringes. Blend toward the blurred
+  // source as compression rises — pulled-in content reads soft. One
   // unconditional fetch (a branch here would cost more, bug #4).
-  g = mix(g, texture(uPre, uv + off/uRes).rgb, wo * uClear);
+  g = mix(g, texture(uPre, uv + off/uRes).rgb, w*w * uClear);
 
   // ── vibrancy: a NEUTRAL lift that grows as the backdrop darkens. Never a hue.
   mediump float bl = dot(g, vec3(0.2126, 0.7152, 0.0722));
@@ -167,7 +162,7 @@ void main() {
   //    so saturated content behind (the petals) doesn't paint the whole rim.
   //    Removes colour only — never adds a hue.
   mediump float fl = dot(g, vec3(0.2126, 0.7152, 0.0722));
-  g = mix(g, vec3(fl), 0.45 * w*w);
+  g = mix(g, vec3(fl), 0.3 * w*w*w*w);   // confined to the outer rim: the band itself keeps its colour
 
   // ── rim: a hairline, never scaled by body opacity. Lit on BOTH diagonals —
   //    bright top-left, softer bottom-right, dim on the cross diagonal.

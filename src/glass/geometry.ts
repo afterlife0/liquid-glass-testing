@@ -21,14 +21,14 @@ export function cornerExponent(radius: number, halfW: number, halfH: number): nu
 }
 
 /** Bevel is a fraction, never a constant — and never deeper than the corner (bug #1). */
-export const BEVEL_FRACTION = 0.20;
-/** Band width, CSS px. Wider than the brief's 11: all the bending lives in this band now
- *  (the middle is not magnified), and at 11px the reference's heavy edge read as a hairline. */
-export const BEVEL_MAX = 14;
+/** Band width as a fraction of the half-size. The reference's band reaches most of
+ *  the way to the centre; the corner radius caps it (past the radius the normal
+ *  switches sides along a diagonal — a seam, bug #1). */
+export const BEVEL_FRACTION = 0.8;
+export const BEVEL_MAX = 40;
 
 export function bevelThickness(halfW: number, halfH: number, radius: number): number {
-  const size = 2 * Math.min(halfW, halfH);
-  return Math.max(1, Math.min(size * BEVEL_FRACTION, BEVEL_MAX, radius));
+  return Math.max(1, Math.min(Math.min(halfW, halfH) * BEVEL_FRACTION, BEVEL_MAX, radius));
 }
 
 export function shadowSpread(halfW: number, halfH: number): number {
@@ -40,22 +40,16 @@ export function shadowSpread(halfW: number, halfH: number): number {
  *  clearly structured. Only large surfaces (dialogs, sheets) take the heavy blur. */
 export const SHARP_CUT = 160;
 
-/** Rim bend scale, as a multiple of bevel thickness (the Refraction slider multiplies it). */
-export const EDGE_REACH = 1.0;
-/** Signed rim profile — mirrors glass.frag. Outer sliver samples outside the element,
- *  the band behind it samples inward and folds. */
-export const RIM_OUT = 1.3, RIM_IN = 2.6, RIM_OUT_BAND = 0.3;
+/** Outward reach at the rim, as a multiple of the band width (Refraction slider multiplies it). */
+export const EDGE_REACH = 1.6;
 
-const smoothstep = (a: number, b: number, x: number) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const smoothstep01 = (x: number) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
 
-/** Signed bend at bevel position t (0 = rim, 1 = inner edge), in bevel units: < 0 samples outside. */
-export function rimBend(t: number): number {
-  const w = 1 - clamp(t, 0, 1), wo = Math.max(0, 1 - t / RIM_OUT_BAND);
-  return RIM_IN * w ** 3 * smoothstep(0.05, 0.4, t) - RIM_OUT * wo ** 3;
-}
+/** Outward bend at band position t (0 = rim, 1 = inner edge), in band units — mirrors glass.frag. */
+export const rimBend = (t: number) => 1 - smoothstep01(t);
 
-/** Inward sample distance for a pixel `u` px inside the rim (bevel thickness T); negative = outside. */
-export const rimSample = (u: number, T: number, reach = EDGE_REACH) => u + reach * T * rimBend(u / T);
+/** Where a pixel `u` px inside the rim samples, as a distance inside the rim (negative = outside). */
+export const rimSample = (u: number, T: number, reach = EDGE_REACH) => u - reach * T * rimBend(u / T);
 
 export function shapeFromRect(r: { left: number; top: number; width: number; height: number }, radius?: number): Shape {
   const hw = r.width / 2, hh = r.height / 2;

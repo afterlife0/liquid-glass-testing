@@ -11,7 +11,7 @@ const DOTS = <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
 const PAUSE = <svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1.2" /><rect x="14" y="4" width="4" height="16" rx="1.2" /></svg>;
 const SKIP = (back: boolean) => <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d={back ? 'M4 12a8 8 0 1 0 2.4-5.7' : 'M20 12a8 8 0 1 1-2.4-5.7'} /><path d={back ? 'M4 4v4h4' : 'M20 4v4h-4'} /><text x="12" y="15.5" fontSize="7.5" textAnchor="middle" fill="currentColor" stroke="none" fontWeight="700">15</text></svg>;
 
-const TAB_LABEL: Record<SceneKey, string> = { wheel: 'Drop', text: 'Text', list: 'List', video: 'Video', alert: 'Alert' };
+const TAB_LABEL: Record<SceneKey, string> = { wheel: 'Drop', text: 'Text', list: 'List', video: 'Video', alert: 'Alert', blob: 'Blob' };
 
 /** A glass element you can drag across the backdrop to judge refraction. */
 function Drag({ x, y, w, h, children, className = '', style, pressable = true, radius }: {
@@ -108,6 +108,13 @@ function Scene() {
           <button type="button" className="lab-btn lab-destructive">Delete</button>
         </div>
       </Drag>}
+      {/* 6 — capsule across the edge of a soft form (the capsule-over-blob reference, 2.8 : 1) */}
+      {on('blob') && (() => {
+        const cw = Math.min(L.blob.w - 40, 330), ch = Math.round(cw / 2.8);
+        return <Drag key={`blob${w}`} x={cx(L.blob) - cw / 2} y={L.blob.y + L.blob.h * 0.42 - ch / 2} w={cw} h={ch} className="lab-row dark-ink">
+          <span className="lab-glyph">‹</span><IconPlus width={30} height={30} /><span className="lab-glyph">○</span>
+        </Drag>;
+      })()}
       {compact && (
         <GlassPanel className="lab-tabs" z={4} radius={30} role="tablist" aria-label="Scenes">
           {SCENES.map(k => (

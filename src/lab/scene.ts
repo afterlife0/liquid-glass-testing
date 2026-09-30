@@ -2,9 +2,9 @@
 // drawn once with Canvas2D and uploaded as the glass backdrop.
 
 export interface Region { x: number; y: number; w: number; h: number }
-export interface LabLayout { wheel: Region; text: Region; list: Region; video: Region; alert: Region }
+export interface LabLayout { wheel: Region; text: Region; list: Region; video: Region; alert: Region; blob: Region }
 export type SceneKey = keyof LabLayout;
-export const SCENES: SceneKey[] = ['wheel', 'text', 'list', 'video', 'alert'];
+export const SCENES: SceneKey[] = ['wheel', 'text', 'list', 'video', 'alert', 'blob'];
 
 /** Phones show one scene at a time, full-stage, above a tab bar. */
 export const isCompact = (W: number) => W < 760;
@@ -13,15 +13,16 @@ export const TAB_BAR_SPACE = 92;
 export function layoutFor(W: number, H: number): LabLayout {
   if (isCompact(W)) {
     const stage = { x: 12, y: 52, w: W - 24, h: H - 52 - TAB_BAR_SPACE };
-    return { wheel: stage, text: stage, list: stage, video: stage, alert: stage };
+    return { wheel: stage, text: stage, list: stage, video: stage, alert: stage, blob: stage };
   }
   const g = 20, cw = (W - g * 4) / 3, rh = (H - g * 3 - 56) / 2, top = 56 + g;
   return {
     wheel: { x: g, y: top, w: cw, h: rh },
     text: { x: g * 2 + cw, y: top, w: cw, h: rh },
     list: { x: g * 3 + cw * 2, y: top, w: cw, h: rh },
-    video: { x: g, y: top + rh + g, w: cw * 1.5 + g / 2, h: rh },
-    alert: { x: g * 2 + cw * 1.5 + g / 2, y: top + rh + g, w: cw * 1.5 + g / 2, h: rh },
+    video: { x: g, y: top + rh + g, w: cw, h: rh },
+    alert: { x: g * 2 + cw, y: top + rh + g, w: cw, h: rh },
+    blob: { x: g * 3 + cw * 2, y: top + rh + g, w: cw, h: rh },
   };
 }
 
@@ -99,6 +100,26 @@ export function drawLab(canvas: HTMLCanvasElement, W: number, H: number, dpr: nu
       c.moveTo(x - 10, r.y); c.quadraticCurveTo(x + 40 * Math.sin(i), r.y + r.h / 2, x + 8, r.y + r.h);
       c.lineTo(x + 20, r.y + r.h); c.quadraticCurveTo(x + 50 * Math.sin(i), r.y + r.h / 2, x + 2, r.y); c.fill();
     }
+  });
+
+  // 6 — soft yellow form against blue (twin of the capsule-over-blob reference)
+  if (show('blob')) clip(L.blob, 24, () => {
+    const r = L.blob;
+    const sky = c.createLinearGradient(r.x, r.y + r.h, r.x + r.w, r.y);
+    sky.addColorStop(0, '#6aa2ea'); sky.addColorStop(1, '#2b62b8');
+    c.fillStyle = sky; c.fillRect(r.x, r.y, r.w, r.h);
+    c.save();
+    c.filter = `blur(${Math.round(Math.min(r.w, r.h) * 0.03)}px)`;
+    const y = c.createLinearGradient(0, r.y + r.h * 0.35, 0, r.y + r.h);
+    y.addColorStop(0, '#ffd23a'); y.addColorStop(1, '#f2a100');
+    c.fillStyle = y;
+    c.beginPath();                                  // body, lower left
+    c.ellipse(r.x + r.w * 0.28, r.y + r.h * 0.95, r.w * 0.42, r.h * 0.55, -0.15, 0, Math.PI * 2);
+    c.fill();
+    c.beginPath();                                  // shoulder rising toward the centre
+    c.ellipse(r.x + r.w * 0.5, r.y + r.h * 0.72, r.w * 0.13, r.h * 0.34, 0, 0, Math.PI * 2);
+    c.fill();
+    c.restore();
   });
 
   // 5 — flowers against sky (the alert reference)
