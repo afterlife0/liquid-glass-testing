@@ -12,7 +12,7 @@ import { ShadowCache, SHADOW_AMOUNT } from './material';
 import { GestureTracker, hardness, WaveField } from './waves';
 import { Spring } from './springs';
 import {
-  Shape, SHARP_CUT, EDGE_REACH, bevelThickness, cornerExponent, lensMagnification, shadowSpread, shapeFromRect,
+  Shape, SHARP_CUT, EDGE_REACH, bevelThickness, cornerExponent, shadowSpread, shapeFromRect,
 } from './geometry';
 
 export const MAX_DPR = 2;
@@ -484,8 +484,7 @@ export class GlassRenderer {
     const thick = bevelThickness(s0.hw, s0.hh, r0);
     const k = this.settings.refraction;
     gl.uniform1f(u.uThick, thick * dpr);
-    gl.uniform1f(u.uEdge, thick * EDGE_REACH * dpr * Math.min(k, 1)); // > 0.5·T would fold the image
-    gl.uniform1f(u.uMag, lensMagnification(s0.hw, s0.hh) * k);
+    gl.uniform1f(u.uEdge, thick * EDGE_REACH * dpr * k);
     gl.uniform1f(u.uPx, dpr);
     gl.uniform1f(u.uRefr, k * REFRACT * dpr);
     gl.uniform1f(u.uPress, press);

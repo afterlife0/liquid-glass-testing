@@ -21,9 +21,14 @@ export function cornerExponent(radius: number, halfW: number, halfH: number): nu
 }
 
 /** Bevel is a fraction, never a constant — and never deeper than the corner (bug #1). */
+export const BEVEL_FRACTION = 0.22;
+/** Band width, CSS px. Wider than the brief's 11: all the bending lives in this band now
+ *  (the middle is not magnified), and at 11px the reference's heavy edge read as a hairline. */
+export const BEVEL_MAX = 16;
+
 export function bevelThickness(halfW: number, halfH: number, radius: number): number {
   const size = 2 * Math.min(halfW, halfH);
-  return Math.max(1, Math.min(size * 0.2, 11, radius));
+  return Math.max(1, Math.min(size * BEVEL_FRACTION, BEVEL_MAX, radius));
 }
 
 export function shadowSpread(halfW: number, halfH: number): number {
@@ -35,15 +40,14 @@ export function shadowSpread(halfW: number, halfH: number): number {
  *  clearly structured. Only large surfaces (dialogs, sheets) take the heavy blur. */
 export const SHARP_CUT = 160;
 
-/** Rim stretch: how far INWARD the rim samples, as a fraction of bevel thickness.
- *  0.5 is the largest value whose mapping never folds back on itself. */
-export const EDGE_REACH = 0.5;
+/** Rim bend: how far INWARD the rim samples, as a multiple of bevel thickness.
+ *  Above 1/3 the (1 − t)³ mapping folds near the rim — intended: the outer band
+ *  shows mirrored, compressed content, like the edge of thick glass. */
+export const EDGE_REACH = 2.0;
 
-/** Lens magnification as a fraction of half-size: strong on small controls, gentle on panels. */
-export function lensMagnification(halfW: number, halfH: number): number {
-  const size = 2 * Math.min(halfW, halfH);
-  return lerp(0.12, 0.03, clamp((size - 60) / 240, 0, 1));
-}
+/** Inward sample distance for a pixel `u` px inside the rim (bevel thickness T). */
+export const rimSample = (u: number, T: number, reach = EDGE_REACH) =>
+  u + reach * T * Math.max(0, 1 - u / T) ** 3;
 
 export function shapeFromRect(r: { left: number; top: number; width: number; height: number }, radius?: number): Shape {
   const hw = r.width / 2, hh = r.height / 2;

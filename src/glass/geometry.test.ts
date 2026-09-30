@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDGE_REACH, bevelThickness, concentricRadius, cornerExponent, incomingOpacity, lensMagnification, meltOf, outgoingOpacity } from './geometry';
+import { bevelThickness, concentricRadius, cornerExponent, incomingOpacity, meltOf, outgoingOpacity, rimSample } from './geometry';
 import { shadowField, SHADOW_MARGIN } from './material';
 
 describe('concentricity (§4)', () => {
@@ -20,11 +20,11 @@ describe('concentricity (§4)', () => {
 describe('bevel is a fraction, never a constant', () => {
   it('keeps a flat middle on a 44px button', () => {
     const t = bevelThickness(22, 22, 22);
-    expect(t).toBeCloseTo(8.8);
+    expect(t).toBeCloseTo(9.68);
     expect(t).toBeLessThan(22 * 0.5);
   });
-  it('caps at 11px and never exceeds the corner radius (bug #1 seam)', () => {
-    expect(bevelThickness(200, 100, 20)).toBe(11);
+  it('caps at 16px and never exceeds the corner radius (bug #1 seam)', () => {
+    expect(bevelThickness(200, 100, 20)).toBe(16);
     expect(bevelThickness(200, 100, 9)).toBe(9);
   });
 });
@@ -50,25 +50,19 @@ describe('baked shadow field', () => {
   });
 });
 
-describe('lens magnification is size-relative', () => {
-  it('magnifies small controls more than large panels, and never zero', () => {
-    const small = lensMagnification(22, 22), card = lensMagnification(120, 59), sheet = lensMagnification(300, 250);
-    expect(small).toBeGreaterThan(card);
-    expect(card).toBeGreaterThan(sheet);
-    expect(sheet).toBeGreaterThan(0);
-    // centre magnification m = 1 / (1 − 0.7·uMag): a visible 5–10% on a control
-    expect(1 / (1 - 0.7 * small)).toBeGreaterThan(1.05);
+describe('all bending is at the rim', () => {
+  const T = 11;
+  it('passes the flat middle through at true size — no magnification', () => {
+    for (const u of [T, T + 5, 60]) expect(rimSample(u, T)).toBe(u);
   });
-});
-
-describe('rim stretch pulls content outward without folding', () => {
-  it('maps the bevel monotonically, with maximum stretch at the rim', () => {
-    const T = 11, E = T * EDGE_REACH;
-    const s = (u: number) => u + E * (1 - u / T) ** 2;     // inward sample distance
-    const ds = (u: number) => 1 - (2 * E / T) * (1 - u / T);
-    expect(ds(0)).toBeCloseTo(0);                          // stretched to the edge
-    expect(ds(T)).toBeCloseTo(1);                          // identity where the bevel ends
-    for (let u = 0; u < T; u += 0.5) expect(s(u + 0.5)).toBeGreaterThanOrEqual(s(u)); // no fold
-    expect(s(0)).toBeGreaterThan(0);                       // the rim shows content from inside
+  it('meets the flat middle smoothly: no offset and no slope at the bevel edge (bug #1)', () => {
+    const slope = (rimSample(T - 1e-3, T) - rimSample(T - 2e-3, T)) / 1e-3;
+    expect(rimSample(T, T)).toBe(T);
+    expect(slope).toBeCloseTo(1, 3);
+  });
+  it('bends hard at the rim: samples well inside, folding the outer band', () => {
+    expect(rimSample(0, T)).toBeGreaterThanOrEqual(1.5 * T);
+    // the mapping turns back on itself near the rim (mirrored, compressed band)
+    expect(rimSample(1, T)).toBeLessThan(rimSample(0, T));
   });
 });

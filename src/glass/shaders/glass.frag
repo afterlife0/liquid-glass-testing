@@ -17,8 +17,7 @@ uniform int   uN;           // shape count (1..4)
 uniform float uK;           // smooth-union radius — the "liquid"
 uniform float uNexp;        // 2.0 = circular corner, 3.4 = superellipse
 uniform float uThick, uRefr, uPress, uMelt, uClear, uTime;
-uniform float uEdge;        // rim stretch: device px sampled INWARD at the rim (≤ uThick/2)
-uniform float uMag;         // lens magnification, fraction of the half-size
+uniform float uEdge;        // rim bend: device px sampled INWARD at the rim
 uniform float uPx;          // device px per CSS px — keeps the rim hairline thin at any DPR
 uniform float uWK, uWW, uWS, uHoldR;
 uniform float uWGain;       // wave gain: offsets the 1/dpr of a device-px gradient; applied after the life floor
@@ -106,27 +105,24 @@ void main() {
   }
   float inside = smoothstep(1.2, -1.2, d);
 
-  // ── surface: RIM STRETCH + SIZE-RELATIVE LENS. Both terms are required.
-  //    Rim: like a thick convex lens, the bevel samples INWARD, so content near
-  //    the edge is pulled outward and stretched toward the rim. A pixel at inward
-  //    distance u samples at u + E(1 − u/T)²; with E = T/2 the mapping's slope is
-  //    exactly 0 at the rim (maximum stretch, no fold) and 1 where the bevel ends,
-  //    and (1 − t)² has zero derivative there — no seam (bug #1).
+  // ── surface: ALL THE BENDING IS AT THE RIM. The flat middle passes the
+  //    backdrop through at true size — no magnification (as in the reference:
+  //    content behind the glass is not enlarged, only the edge bends light).
+  //    The bevel samples INWARD with a (1 − t)³ falloff reaching uEdge px at the
+  //    rim. uEdge is ~2× the bevel, so the outer band folds: content from deeper
+  //    inside is mirrored and compressed into the rim, the way a thick glass edge
+  //    bends light. (1 − t)³ has zero first and second derivative where the bevel
+  //    meets the flat middle, so that boundary never shows as a line (bug #1).
   float t = clamp(-d/uThick, 0.0, 1.0);
   float w = 1.0 - t;
-  vec2 offEdge = -nrm * (uEdge * w*w);
-  //    Lens: magnify about the centre in proportion to the shape's size, growing
-  //    toward the rim — content under a control reads larger, not just softer.
-  vec2 rel  = p - cen;
-  vec2 relv = clamp(rel/max(hb, vec2(1.0)), -1.2, 1.2);
-  vec2 offLens = -rel * uMag * (0.70 + 0.62*min(dot(relv, relv), 1.0));
+  vec2 offEdge = -nrm * (uEdge * w*w*w);
 
   vec2 wg = waveGrad(p, cen, hb);
   if (uHold.z > 0.002) {                               // press-and-hold dimple
     vec2 dv = p - uHold.xy; float s2 = uHoldR*uHoldR;
     wg += uHold.z * 0.6 * exp(-dot(dv,dv)/(2.0*s2)) * dv/s2 * 22.0;
   }
-  vec2 off  = ((offEdge + offLens) - wg * 40.0 * uRefr) * (1.0 - uMelt*0.7);
+  vec2 off  = (offEdge - wg * 40.0 * uRefr) * (1.0 - uMelt*0.7);
   vec2 uv   = p / uRes;
 
   // ── sample, with dispersion only where the bend is wide enough to separate

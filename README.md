@@ -102,12 +102,12 @@ with an old driver, and OS-level GPU usage readings. The HUD's frame counter is 
   lens follows each shape after a split, and `uWd` carries flick direction/anisotropy (§5 lists flick; the §3
   shader had no input for it).
 - **Refraction profile, matched to the reference frames** (the brief's smoothstep bevel read as a soft shading shift):
-  - *Rim stretch*: like a thick convex lens, the bevel samples **inward**, so content near the edge is pulled
-    outward and stretched toward the rim. A pixel at inward distance `u` samples at `u + E(1 − u/T)²` with
-    `E = T/2` — the largest reach whose mapping never folds: slope 0 at the rim (maximum stretch), 1 where the
-    bevel ends (no seam).
-  - *Size-relative lens*: magnification is a fraction of the half-size (`lensMagnification`: 0.12 on controls →
-    0.03 on large panels), not a fixed pixel offset.
+  - *All bending at the rim, none in the middle*: the flat middle passes the backdrop through at **true size**
+    (no lens magnification). The bevel samples inward with a `(1 − t)³` falloff reaching `2 × thickness` at the
+    rim, so the outer band folds — content is mirrored and compressed into the edge, like thick glass. `(1 − t)³` has
+    zero first and second derivative where the bevel meets the middle, so that boundary never draws a line.
+  - *Wider bend band*: `min(22% of size, 16px)` instead of the brief's `min(20%, 11px)` — with the middle unmagnified
+    all the optics live in this band, and at 11px it read as a hairline. Every element keeps a flat middle.
   - *Clear sampling*: controls, toolbars and cards (≤160px min-dimension) sample a half-res source with a light
     2.5px gaussian; only large surfaces take the heavy blur, now 10px instead of 15px.
   - *Hairline rim, lit on both diagonals* (bright top-left, softer bottom-right), DPR-scaled.
