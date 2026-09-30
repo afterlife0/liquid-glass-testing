@@ -44,7 +44,7 @@ export const SHARP_CUT = 160;
 export const EDGE_REACH = 1.0;
 /** Signed rim profile — mirrors glass.frag. Outer sliver samples outside the element,
  *  the band behind it samples inward and folds. */
-export const RIM_OUT = 1.3, RIM_IN = 2.6, RIM_OUT_BAND = 0.3;
+export const RIM_OUT = 1.3, RIM_IN = 2.0, RIM_OUT_BAND = 0.3;
 
 const smoothstep = (a: number, b: number, x: number) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 

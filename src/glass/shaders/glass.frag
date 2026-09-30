@@ -115,7 +115,7 @@ void main() {
   //        from deeper inside out toward the rim (the yellow carried to the top).
   //    Each lobe fades out with a cubic — zero value, slope and curvature where
   //    it ends — so neither the flip nor the bevel's inner edge draws a line (bug #1).
-  const float RIM_OUT = 1.3, RIM_IN = 2.6, RIM_OUT_BAND = 0.3;
+  const float RIM_OUT = 1.3, RIM_IN = 2.0, RIM_OUT_BAND = 0.3;
   float t  = clamp(-d/uThick, 0.0, 1.0);
   float w  = 1.0 - t;
   float wo = max(0.0, 1.0 - t/RIM_OUT_BAND);
@@ -185,6 +185,11 @@ void main() {
   mediump float mx = max(g.r, max(g.g, g.b));
   if (mx > 0.84) g *= (0.84 + 0.16*(1.0 - exp(-(mx - 0.84)/0.16))) / mx;
 
-  O = vec4(g * inside, inside * (0.88 + 0.12*max(uPress, uMelt)));  // premultiplied
+  // Premultiplied and fully opaque inside: the glass owns its pixels. (The brief's
+  // alpha 0.88 left 12% of the unrefracted backdrop showing — and with colour
+  // not scaled to match it ADDED that 12%, clipping light backdrops to white and
+  // ghosting sharp text over the glass. Only a press, which raised alpha to 1,
+  // hid it — which is why the glass looked clean while dragged.)
+  O = vec4(g * inside, inside);
   O += vec4(vec3(bloom), bloom) * (1.0 - inside);      // bloom under the AA edge
 }

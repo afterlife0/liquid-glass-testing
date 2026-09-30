@@ -112,13 +112,16 @@ with an old driver, and OS-level GPU usage readings. The HUD's frame counter is 
   - *Wider bend band*: `min(20% of size, 14px)` instead of the brief's `min(20%, 11px)` — with the middle unmagnified
     all the optics live in this band, and at 11px it read as a hairline. Every element keeps a flat middle.
   - *Clear sampling*: controls, toolbars and cards (≤160px min-dimension) sample a half-res source with a light
-    1px gaussian; only large surfaces take the heavy blur, now 10px instead of 15px.
+    3px gaussian; only large surfaces take the heavy blur, now 10px instead of 15px.
   - *Hairline rim, lit on both diagonals* (bright top-left, softer bottom-right), DPR-scaled.
   - *Dark-backdrop lift 0.07* instead of 0.13, plus a 5% neutral veil: 0.13 turned controls over dark video
     into grey discs where the reference shows a faint lightening.
 - **Wave gain (`uWGain = 2.5 × dpr`)**: wave sizes are in device px, so the analytic gradient shrinks by 1/dpr;
   at the brief's amplitudes the ripples were invisible here. The gain is applied after the amplitude floor, so the
   CPU-side death time — and exact sleep — are unchanged.
+- **Glass is fully opaque inside (alpha 1, not the brief's 0.88)**: at 0.88 the premultiplied colour wasn't scaled
+  to match, so the glass *added* 12% of the unrefracted backdrop — clipping light backdrops to white and ghosting sharp
+  text over the glass. A press raised alpha to 1 and hid it, which is why the glass looked clean only while dragged.
 - **Bloom under the AA edge**: without it the band between glass and bloom drew a dark outline at the melt peak (bug #1).
 - **Radius rule**: the brief's "round below 60px" is kept for the app; the lab's larger playback controls and
   capsules pass an explicit full radius, as in the reference.

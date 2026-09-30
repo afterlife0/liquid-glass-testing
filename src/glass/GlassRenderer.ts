@@ -18,7 +18,7 @@ import {
 export const MAX_DPR = 2;
 export const BLUR_CSS_PX = 10;
 /** Light softening for the clear (half-res) source. */
-export const CLEAR_CSS_PX = 1.0;
+export const CLEAR_CSS_PX = 3.0;
 /** Device-px scale on the shader's 40.0 wave-refraction constant. */
 export const REFRACT = 0.3;
 /** Wave gain per device px ratio. The brief's 22.0 was tuned at a larger refraction scale. */
