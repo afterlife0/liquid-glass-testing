@@ -35,8 +35,9 @@ export function shadowSpread(halfW: number, halfH: number): number {
  *  clearly structured. Only large surfaces (dialogs, sheets) take the heavy blur. */
 export const SHARP_CUT = 160;
 
-/** Rim compression: how far beyond the rim the bevel samples, as a multiple of bevel thickness. */
-export const EDGE_REACH = 2.4;
+/** Rim stretch: how far INWARD the rim samples, as a fraction of bevel thickness.
+ *  0.5 is the largest value whose mapping never folds back on itself. */
+export const EDGE_REACH = 0.5;
 
 /** Lens magnification as a fraction of half-size: strong on small controls, gentle on panels. */
 export function lensMagnification(halfW: number, halfH: number): number {

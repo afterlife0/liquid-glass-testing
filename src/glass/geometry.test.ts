@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bevelThickness, concentricRadius, cornerExponent, incomingOpacity, lensMagnification, meltOf, outgoingOpacity } from './geometry';
+import { EDGE_REACH, bevelThickness, concentricRadius, cornerExponent, incomingOpacity, lensMagnification, meltOf, outgoingOpacity } from './geometry';
 import { shadowField, SHADOW_MARGIN } from './material';
 
 describe('concentricity (§4)', () => {
@@ -58,5 +58,17 @@ describe('lens magnification is size-relative', () => {
     expect(sheet).toBeGreaterThan(0);
     // centre magnification m = 1 / (1 − 0.7·uMag): a visible 5–10% on a control
     expect(1 / (1 - 0.7 * small)).toBeGreaterThan(1.05);
+  });
+});
+
+describe('rim stretch pulls content outward without folding', () => {
+  it('maps the bevel monotonically, with maximum stretch at the rim', () => {
+    const T = 11, E = T * EDGE_REACH;
+    const s = (u: number) => u + E * (1 - u / T) ** 2;     // inward sample distance
+    const ds = (u: number) => 1 - (2 * E / T) * (1 - u / T);
+    expect(ds(0)).toBeCloseTo(0);                          // stretched to the edge
+    expect(ds(T)).toBeCloseTo(1);                          // identity where the bevel ends
+    for (let u = 0; u < T; u += 0.5) expect(s(u + 0.5)).toBeGreaterThanOrEqual(s(u)); // no fold
+    expect(s(0)).toBeGreaterThan(0);                       // the rim shows content from inside
   });
 });

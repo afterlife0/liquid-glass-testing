@@ -81,9 +81,10 @@ with an old driver, and OS-level GPU usage readings. The HUD's frame counter is 
   lens follows each shape after a split, and `uWd` carries flick direction/anisotropy (§5 lists flick; the §3
   shader had no input for it).
 - **Refraction profile, matched to the reference frames** (the brief's smoothstep bevel read as a soft shading shift):
-  - *Rim compression*: the bevel samples up to `2.4 × thickness` beyond the rim with a `(1 − t)³` falloff, so
-    content outside the element is squeezed into the rim band (the list row pulled into the toolbar's top edge,
-    the leaf smeared into its cap). `(1 − t)³` has zero first and second derivative where the bevel ends — no seam.
+  - *Rim stretch*: like a thick convex lens, the bevel samples **inward**, so content near the edge is pulled
+    outward and stretched toward the rim. A pixel at inward distance `u` samples at `u + E(1 − u/T)²` with
+    `E = T/2` — the largest reach whose mapping never folds: slope 0 at the rim (maximum stretch), 1 where the
+    bevel ends (no seam).
   - *Size-relative lens*: magnification is a fraction of the half-size (`lensMagnification`: 0.12 on controls →
     0.03 on large panels), not a fixed pixel offset.
   - *Clear sampling*: controls, toolbars and cards (≤160px min-dimension) sample a half-res source with a light

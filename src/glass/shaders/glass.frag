@@ -17,7 +17,7 @@ uniform int   uN;           // shape count (1..4)
 uniform float uK;           // smooth-union radius — the "liquid"
 uniform float uNexp;        // 2.0 = circular corner, 3.4 = superellipse
 uniform float uThick, uRefr, uPress, uMelt, uClear, uTime;
-uniform float uEdge;        // rim compression: device px sampled beyond the rim
+uniform float uEdge;        // rim stretch: device px sampled INWARD at the rim (≤ uThick/2)
 uniform float uMag;         // lens magnification, fraction of the half-size
 uniform float uPx;          // device px per CSS px — keeps the rim hairline thin at any DPR
 uniform float uWK, uWW, uWS, uHoldR;
@@ -106,14 +106,15 @@ void main() {
   }
   float inside = smoothstep(1.2, -1.2, d);
 
-  // ── surface: RIM COMPRESSION + SIZE-RELATIVE LENS. Both terms are required.
-  //    Rim: a thick lens bends hardest at its edge, so the band just inside the
-  //    rim shows content from up to uEdge px BEYOND the footprint, squeezed into
-  //    the bevel (the list row pulled into a toolbar's top edge in the reference).
-  //    w³ has zero first AND second derivative where the bevel ends: no seam (bug #1).
+  // ── surface: RIM STRETCH + SIZE-RELATIVE LENS. Both terms are required.
+  //    Rim: like a thick convex lens, the bevel samples INWARD, so content near
+  //    the edge is pulled outward and stretched toward the rim. A pixel at inward
+  //    distance u samples at u + E(1 − u/T)²; with E = T/2 the mapping's slope is
+  //    exactly 0 at the rim (maximum stretch, no fold) and 1 where the bevel ends,
+  //    and (1 − t)² has zero derivative there — no seam (bug #1).
   float t = clamp(-d/uThick, 0.0, 1.0);
   float w = 1.0 - t;
-  vec2 offEdge = nrm * (uEdge * w*w*w);
+  vec2 offEdge = -nrm * (uEdge * w*w);
   //    Lens: magnify about the centre in proportion to the shape's size, growing
   //    toward the rim — content under a control reads larger, not just softer.
   vec2 rel  = p - cen;
