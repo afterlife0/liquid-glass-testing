@@ -21,11 +21,13 @@ export interface AppSettings {
   ripples: boolean;
   refraction: number;
   hud: boolean;
+  batterySaver: boolean;
 }
 
 const DEFAULTS: AppSettings = {
   material: 'glass', appearance: 'dark', ripples: true, refraction: 1,
   hud: typeof window !== 'undefined' && window.innerWidth > 900, // the HUD would cover the ledger on a phone
+  batterySaver: false, // a demo exists to show the glass; opt in to the low-battery fallback
 };
 const KEY = 'ledgerline.settings.v1';
 
@@ -67,7 +69,7 @@ export function App() {
   );
 
   return (
-    <GlassProvider preferred={material} settings={rendererSettings}>
+    <GlassProvider preferred={material} settings={rendererSettings} batterySaver={settings.batterySaver}>
       <Shell scheme={scheme} settings={settings} setSettings={setSettings} reducedTransparency={reducedTransparency} />
     </GlassProvider>
   );

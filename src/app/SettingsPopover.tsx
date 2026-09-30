@@ -97,6 +97,10 @@ export function SettingsPopover({ open, anchor, onClose, settings, setSettings, 
           <input type="checkbox" checked={settings.hud} onChange={e => setSettings({ hud: e.target.checked })} />
           Renderer HUD
         </label>
+        <label className="row">
+          <input type="checkbox" checked={settings.batterySaver} onChange={e => setSettings({ batterySaver: e.target.checked })} />
+          Frosted below 25% battery
+        </label>
         <button type="button" className="btn-small" disabled={!glass} onClick={() => glass?.simulateContextLoss(1500)}>
           Simulate context loss
         </button>

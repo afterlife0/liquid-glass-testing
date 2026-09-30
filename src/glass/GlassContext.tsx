@@ -17,8 +17,11 @@ const Ctx = createContext<GlassState>({
 });
 const LayerCtx = createContext(false);
 
-export function GlassProvider({ preferred, settings, children }: {
-  preferred: Tier; settings: Partial<RendererSettings>; children: ReactNode;
+export function GlassProvider({ preferred, settings, batterySaver = true, children }: {
+  preferred: Tier; settings: Partial<RendererSettings>;
+  /** Drop to Tier B below 25% battery when not charging (the brief's default). */
+  batterySaver?: boolean;
+  children: ReactNode;
 }) {
   const capability = useMemo(detectGlass, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -39,7 +42,10 @@ export function GlassProvider({ preferred, settings, children }: {
   }, [want]);
 
   useEffect(() => { renderer?.updateSettings(settings); }, [renderer, settings]);
-  useEffect(() => watchBattery(setLowBattery), []);
+  useEffect(() => {
+    if (!batterySaver) { setLowBattery(false); return; }
+    return watchBattery(setLowBattery);
+  }, [batterySaver]);
 
   // useGlass() returning null turns every Tier A panel into a Tier B one.
   const live = want && contextOk && !lowBattery ? renderer : null;

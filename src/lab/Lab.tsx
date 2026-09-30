@@ -124,5 +124,5 @@ function Scene() {
 
 export function Lab() {
   const settings = useMemo(() => ({ ripples: true, refraction: 1, reducedMotion: false, shadowAmount: 0.16 }), []);
-  return <GlassProvider preferred="glass" settings={settings}><Scene /></GlassProvider>;
+  return <GlassProvider preferred="glass" settings={settings} batterySaver={false}><Scene /></GlassProvider>;
 }

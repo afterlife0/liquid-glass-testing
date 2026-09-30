@@ -58,7 +58,8 @@ headless visual testing), `?debug` exposes the renderer as `window.__glass`.
 `useGlass()` returning `null` turns every Tier A panel into a Tier B one — one switch. It is null when:
 no WebGL2, a software rasteriser (SwiftShader/llvmpipe), `MAX_TEXTURE_SIZE < 4096`,
 `prefers-reduced-transparency`, WebGL context lost (recovers automatically), battery < 25% and not charging,
-or the user picked *Frosted* / *Flat* in settings.
+or the user picked *Frosted* / *Flat* in settings. The low-battery fallback is opt-in in this demo
+(Settings → *Frosted below 25% battery*, off by default); `GlassProvider`'s `batterySaver` prop defaults to on.
 
 ## Layout
 
