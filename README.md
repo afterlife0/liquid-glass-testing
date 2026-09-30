@@ -5,6 +5,11 @@ material for an Electron + Vite accounting app (TypeScript, React, Chromium 120+
 
 ![Tier A, dark](docs/screenshots/tier-a-dark.png)
 
+**Glass Lab** (`lab.html`) recreates the WWDC25 reference scenes — colour-wheel drop, capsule over text,
+toolbar over a list and photo, controls over dark video, alert over flowers. Every element is draggable.
+
+![Glass Lab](docs/screenshots/glass-lab.png)
+
 | Melt menu (FAB → menu) | Light theme | Flat theme |
 | --- | --- | --- |
 | ![](docs/screenshots/melt-menu.png) | ![](docs/screenshots/tier-a-light.png) | ![](docs/screenshots/flat-light.png) |
@@ -13,7 +18,7 @@ material for an Electron + Vite accounting app (TypeScript, React, Chromium 120+
 
 ```bash
 npm install
-npm run dev              # browser: http://localhost:5173
+npm run dev              # browser: http://localhost:5173  (lab: /lab.html)
 npm run electron:dev     # Electron window against the dev server (run `npm run dev` first)
 npm run build && npm run electron   # Electron against the production build
 npm test                 # geometry, waves/gestures, shadow field, contrast audit
@@ -75,11 +80,23 @@ with an old driver, and OS-level GPU usage readings. The HUD's frame counter is 
 - **Shader additions (both uniform-driven):** `sdAll` also blends the dominant shape's centre/half-size so the
   lens follows each shape after a split, and `uWd` carries flick direction/anisotropy (§5 lists flick; the §3
   shader had no input for it).
+- **Refraction profile, matched to the reference frames** (the brief's smoothstep bevel read as a soft shading shift):
+  - *Rim compression*: the bevel samples up to `2.4 × thickness` beyond the rim with a `(1 − t)³` falloff, so
+    content outside the element is squeezed into the rim band (the list row pulled into the toolbar's top edge,
+    the leaf smeared into its cap). `(1 − t)³` has zero first and second derivative where the bevel ends — no seam.
+  - *Size-relative lens*: magnification is a fraction of the half-size (`lensMagnification`: 0.12 on controls →
+    0.03 on large panels), not a fixed pixel offset.
+  - *Clear sampling*: controls, toolbars and cards (≤160px min-dimension) sample a half-res source with a light
+    2.5px gaussian; only large surfaces take the heavy blur, now 10px instead of 15px.
+  - *Hairline rim, lit on both diagonals* (bright top-left, softer bottom-right), DPR-scaled.
+  - *Dark-backdrop lift 0.07* instead of 0.13, plus a 5% neutral veil: 0.13 turned controls over dark video
+    into grey discs where the reference shows a faint lightening.
 - **Wave gain (`uWGain = 2.5 × dpr`)**: wave sizes are in device px, so the analytic gradient shrinks by 1/dpr;
   at the brief's amplitudes the ripples were invisible here. The gain is applied after the amplitude floor, so the
   CPU-side death time — and exact sleep — are unchanged.
 - **Bloom under the AA edge**: without it the band between glass and bloom drew a dark outline at the melt peak (bug #1).
-- **Refraction scale** `REFRACT = 0.3` device-px multiplier on the shader's `40.0`, tuned by eye; exposed as a slider.
+- **Radius rule**: the brief's "round below 60px" is kept for the app; the lab's larger playback controls and
+  capsules pass an explicit full radius, as in the reference.
 - **Settings popover is Tier B**: its backdrop is live DOM (the KPI cards). Canvas glass is drawn under all DOM,
   so by the brief's own rule it is not a Tier A candidate. The dialog stays Tier A by fading the page behind it.
 - **Not built:** direct-interpolation cross-dissolve (sidebar → tab bar) and the proximity lens.

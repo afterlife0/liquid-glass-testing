@@ -16,7 +16,10 @@ uniform float uR[4];        // corner radius per shape
 uniform int   uN;           // shape count (1..4)
 uniform float uK;           // smooth-union radius — the "liquid"
 uniform float uNexp;        // 2.0 = circular corner, 3.4 = superellipse
-uniform float uThick, uRefr, uLens, uPress, uMelt, uClear, uTime;
+uniform float uThick, uRefr, uPress, uMelt, uClear, uTime;
+uniform float uEdge;        // rim compression: device px sampled beyond the rim
+uniform float uMag;         // lens magnification, fraction of the half-size
+uniform float uPx;          // device px per CSS px — keeps the rim hairline thin at any DPR
 uniform float uWK, uWW, uWS, uHoldR;
 uniform float uWGain;       // wave gain: offsets the 1/dpr of a device-px gradient; applied after the life floor
 uniform vec3  uHold;        // xy finger, z depth
@@ -103,20 +106,26 @@ void main() {
   }
   float inside = smoothstep(1.2, -1.2, d);
 
-  // ── surface: edge bevel + GLOBAL LENS. Both terms are required.
+  // ── surface: RIM COMPRESSION + SIZE-RELATIVE LENS. Both terms are required.
+  //    Rim: a thick lens bends hardest at its edge, so the band just inside the
+  //    rim shows content from up to uEdge px BEYOND the footprint, squeezed into
+  //    the bevel (the list row pulled into a toolbar's top edge in the reference).
+  //    w³ has zero first AND second derivative where the bevel ends: no seam (bug #1).
   float t = clamp(-d/uThick, 0.0, 1.0);
-  vec2 gEdge = -nrm * (1.5707963 * (1.0 - t*t*(3.0 - 2.0*t)));   // C1 at BOTH ends
-  vec2 relv  = clamp((p - cen)/max(hb, vec2(1.0)), -1.2, 1.2);
-  vec2 gLens = relv * uLens * (0.70 + 0.62*min(dot(relv, relv), 1.0));
-  vec2 gDome = gEdge + gLens;
+  float w = 1.0 - t;
+  vec2 offEdge = nrm * (uEdge * w*w*w);
+  //    Lens: magnify about the centre in proportion to the shape's size, growing
+  //    toward the rim — content under a control reads larger, not just softer.
+  vec2 rel  = p - cen;
+  vec2 relv = clamp(rel/max(hb, vec2(1.0)), -1.2, 1.2);
+  vec2 offLens = -rel * uMag * (0.70 + 0.62*min(dot(relv, relv), 1.0));
 
   vec2 wg = waveGrad(p, cen, hb);
   if (uHold.z > 0.002) {                               // press-and-hold dimple
     vec2 dv = p - uHold.xy; float s2 = uHoldR*uHoldR;
     wg += uHold.z * 0.6 * exp(-dot(dv,dv)/(2.0*s2)) * dv/s2 * 22.0;
   }
-  vec2 grad = gDome + wg;
-  vec2 off  = -grad * 40.0 * uRefr * (1.0 - uMelt*0.7);
+  vec2 off  = ((offEdge + offLens) - wg * 40.0 * uRefr) * (1.0 - uMelt*0.7);
   vec2 uv   = p / uRes;
 
   // ── sample, with dispersion only where the bend is wide enough to separate
@@ -138,15 +147,21 @@ void main() {
 
   // ── vibrancy: a NEUTRAL lift that grows as the backdrop darkens. Never a hue.
   mediump float bl = dot(g, vec3(0.2126, 0.7152, 0.0722));
-  g += vec3((1.0 - smoothstep(0.0, 0.5, bl)) * 0.13);
+  //    0.07, not the brief's 0.13: against the reference, 0.13 turned controls over
+  //    dark video into grey discs where Apple's are a faint lightening.
+  g += vec3((1.0 - smoothstep(0.0, 0.5, bl)) * 0.07);
   g  = mix(g, vec3(1.0), uMelt*0.90 + uPress*0.45);
 
-  // ── rim: never scales with body opacity.
-  mediump float edge = smoothstep(3.1, 0.0, abs(d + 1.4));
-  mediump float band = smoothstep(1.0, 0.0, t) * 0.11;
+  // ── veil: a small neutral lift so glass reads as a material over any content.
+  g = mix(g, vec3(1.0), 0.05);
+
+  // ── rim: a hairline, never scaled by body opacity. Lit on BOTH diagonals —
+  //    bright top-left, softer bottom-right, dim on the cross diagonal.
+  mediump float edge = smoothstep(1.4*uPx, 0.0, abs(d + 0.8*uPx));
+  mediump float band = smoothstep(1.0, 0.0, t) * 0.05;
   mediump float lit  = dot(nrm, LIGHT);
-  g += (edge*(0.34*max(lit,0.0) + 0.12*max(-lit,0.0) + 0.05) + band)*(1.0 - uMelt*0.8)
-     + edge*uPress*0.22;
+  mediump float spec = pow(abs(lit), 1.6) * (lit > 0.0 ? 0.46 : 0.30);
+  g += (edge*(spec + 0.10) + band)*(1.0 - uMelt*0.8) + edge*uPress*0.22;
 
   // ── wave shading is DIRECTIONAL and signed — a flat surface gets exactly zero.
   mediump float sheen = dot(wg, LIGHT);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bevelThickness, concentricRadius, cornerExponent, incomingOpacity, meltOf, outgoingOpacity } from './geometry';
+import { bevelThickness, concentricRadius, cornerExponent, incomingOpacity, lensMagnification, meltOf, outgoingOpacity } from './geometry';
 import { shadowField, SHADOW_MARGIN } from './material';
 
 describe('concentricity (§4)', () => {
@@ -47,5 +47,16 @@ describe('baked shadow field', () => {
   it('is solid inside and has decayed at the quad margin', () => {
     expect(shadowField(-5, 20)).toBe(1);
     expect(shadowField(20 * SHADOW_MARGIN, 20)).toBeLessThan(0.01);
+  });
+});
+
+describe('lens magnification is size-relative', () => {
+  it('magnifies small controls more than large panels, and never zero', () => {
+    const small = lensMagnification(22, 22), card = lensMagnification(120, 59), sheet = lensMagnification(300, 250);
+    expect(small).toBeGreaterThan(card);
+    expect(card).toBeGreaterThan(sheet);
+    expect(sheet).toBeGreaterThan(0);
+    // centre magnification m = 1 / (1 − 0.7·uMag): a visible 5–10% on a control
+    expect(1 / (1 - 0.7 * small)).toBeGreaterThan(1.05);
   });
 });

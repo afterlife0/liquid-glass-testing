@@ -30,8 +30,19 @@ export function shadowSpread(halfW: number, halfH: number): number {
   return Math.min(2 * Math.min(halfW, halfH) * 0.45, 22);
 }
 
-/** Below 90 CSS px, sample the half-res source (sharper detail inside small lenses). */
-export const SHARP_CUT = 90;
+/** Up to this min-dimension (CSS px) a surface samples the lightly blurred half-res
+ *  source: in the reference, content under controls, toolbars and cards stays
+ *  clearly structured. Only large surfaces (dialogs, sheets) take the heavy blur. */
+export const SHARP_CUT = 160;
+
+/** Rim compression: how far beyond the rim the bevel samples, as a multiple of bevel thickness. */
+export const EDGE_REACH = 2.4;
+
+/** Lens magnification as a fraction of half-size: strong on small controls, gentle on panels. */
+export function lensMagnification(halfW: number, halfH: number): number {
+  const size = 2 * Math.min(halfW, halfH);
+  return lerp(0.12, 0.03, clamp((size - 60) / 240, 0, 1));
+}
 
 export function shapeFromRect(r: { left: number; top: number; width: number; height: number }, radius?: number): Shape {
   const hw = r.width / 2, hh = r.height / 2;

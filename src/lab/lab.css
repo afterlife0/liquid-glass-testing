@@ -1,0 +1,18 @@
+body { background: #dfe1e5; color: #111; }
+.lab { position: relative; z-index: 1; height: 100vh; }
+.lab-head {
+  position: absolute; left: 20px; right: 20px; top: 14px; height: 36px; display: flex; gap: 16px; align-items: center;
+  font-size: 13px; color: #333;
+}
+.lab-head strong { font-size: 16px; }
+.lab-head a { margin-left: auto; color: #1d4ed8; }
+.lab-glass { position: absolute; cursor: grab; touch-action: none; user-select: none; }
+.lab-glass:active { cursor: grabbing; }
+.lab-row { display: flex; align-items: center; justify-content: space-evenly; }
+.dark-ink { color: #111; }
+.light-ink { color: #fff; }
+.lab-alert { padding: 16px 18px; display: flex; flex-direction: column; justify-content: space-between; color: #111; }
+.lab-alert p { margin: 0; font-size: 15px; }
+.lab-alert-actions { display: flex; gap: 10px; }
+.lab-btn { flex: 1; height: 44px; border: 0; background: transparent; font-weight: 600; font-size: 15px; cursor: pointer; }
+.lab-destructive { background: #d7263d; color: #fff; border-radius: 22px; }

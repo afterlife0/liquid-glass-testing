@@ -12,13 +12,14 @@ import { ShadowCache, SHADOW_AMOUNT } from './material';
 import { GestureTracker, hardness, WaveField } from './waves';
 import { Spring } from './springs';
 import {
-  Shape, SHARP_CUT, bevelThickness, cornerExponent, shadowSpread, shapeFromRect,
+  Shape, SHARP_CUT, EDGE_REACH, bevelThickness, cornerExponent, lensMagnification, shadowSpread, shapeFromRect,
 } from './geometry';
 
 export const MAX_DPR = 2;
-export const BLUR_CSS_PX = 15;
-export const LENS = 0.34;
-/** Device-px scale on top of the shader's 40.0 refraction constant (tuned by eye against the reference). */
+export const BLUR_CSS_PX = 10;
+/** Light softening for the clear (half-res) source. */
+export const CLEAR_CSS_PX = 2.5;
+/** Device-px scale on the shader's 40.0 wave-refraction constant. */
 export const REFRACT = 0.3;
 /** Wave gain per device px ratio. The brief's 22.0 was tuned at a larger refraction scale. */
 export const WAVE_GAIN = 2.5;
@@ -357,7 +358,7 @@ export class GlassRenderer {
     // scene composite + blur chain, only when the backdrop moved
     const didScene = this.sceneDirty;
     if (this.sceneDirty) {
-      g.scene.render(this.pan * dpr, this.dim.value, BLUR_CSS_PX, dpr);
+      g.scene.render(this.pan * dpr, this.dim.value, BLUR_CSS_PX, CLEAR_CSS_PX, dpr);
       this.sceneDirty = false;
       this.stats.sceneRenders++;
     }
@@ -471,7 +472,7 @@ export class GlassRenderer {
     gl.uniform4f(u.uQuad, q[0], q[1], q[2], q[3]);
     gl.uniform2f(u.uRes, W, H);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, g.scene.blurB.tex);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, g.scene.half.tex);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, g.scene.clear.tex);
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(u.uPre, 0);
     gl.uniform1i(u.uSharp, 1);
@@ -480,9 +481,13 @@ export class GlassRenderer {
     gl.uniform1i(u.uN, shapes.length);
     gl.uniform1f(u.uK, s.k * dpr);
     gl.uniform1f(u.uNexp, cornerExponent(r0, s0.hw, s0.hh));
-    gl.uniform1f(u.uThick, bevelThickness(s0.hw, s0.hh, r0) * dpr);
-    gl.uniform1f(u.uRefr, this.settings.refraction * REFRACT * dpr);
-    gl.uniform1f(u.uLens, LENS);
+    const thick = bevelThickness(s0.hw, s0.hh, r0);
+    const k = this.settings.refraction;
+    gl.uniform1f(u.uThick, thick * dpr);
+    gl.uniform1f(u.uEdge, thick * EDGE_REACH * dpr * k);
+    gl.uniform1f(u.uMag, lensMagnification(s0.hw, s0.hh) * k);
+    gl.uniform1f(u.uPx, dpr);
+    gl.uniform1f(u.uRefr, k * REFRACT * dpr);
     gl.uniform1f(u.uPress, press);
     gl.uniform1f(u.uMelt, melt);
     gl.uniform1f(u.uClear, 2 * Math.min(s0.hw, s0.hh) <= SHARP_CUT ? 1 : 0);
