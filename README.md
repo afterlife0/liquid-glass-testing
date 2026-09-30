@@ -103,13 +103,14 @@ with an old driver, and OS-level GPU usage readings. The HUD's frame counter is 
   lens follows each shape after a split, and `uWd` carries flick direction/anisotropy (§5 lists flick; the §3
   shader had no input for it).
 - **Refraction profile, matched to the reference frames** (the brief's smoothstep bevel read as a soft shading shift):
-  - *Every edge pulls in what lies beyond it* (measured on the reference frames: the top band shows what is
-    above the glass, the bottom band what is below, each end what is beside it). The offset points **outward**,
-    `1.6 × band × (1 − smoothstep(t))` — largest at the rim, zero with zero slope where the band meets the middle,
-    and monotone, so outside content is compressed in, never mirrored. Near the rim it samples the blurred source
-    so squeezed content reads soft instead of aliasing. The middle passes the backdrop through at **true size**.
-  - *Wide band*: `min(80% of the half-size, corner radius, 40px)` — in the reference the band reaches most of the
-    way to the centre; the corner-radius cap keeps the normal's side-switch out of the band (no diagonal seams).
+  - *All bending at the rim, none in the middle, and it bends both ways*: the flat middle passes the backdrop through
+    at **true size**. Across the bevel the offset is signed (`rimBend` in `geometry.ts`, mirrored in the shader):
+    the outer sliver samples up to `1.3 × bevel` *outside* the element, pulling in what lies past the edge (from the
+    blurred source, so it reads soft instead of aliasing); behind it the band samples *inward* and folds, carrying
+    content from deeper inside out to the rim. Each lobe fades with a cubic, so neither the flip nor the bevel's
+    inner edge draws a line.
+  - *Wider bend band*: `min(20% of size, 14px)` instead of the brief's `min(20%, 11px)` — with the middle unmagnified
+    all the optics live in this band, and at 11px it read as a hairline. Every element keeps a flat middle.
   - *Clear sampling*: controls, toolbars and cards (≤160px min-dimension) sample a half-res source with a light
     1px gaussian; only large surfaces take the heavy blur, now 10px instead of 15px.
   - *Hairline rim, lit on both diagonals* (bright top-left, softer bottom-right), DPR-scaled.
