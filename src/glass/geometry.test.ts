@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bevelThickness, concentricRadius, cornerExponent, incomingOpacity, meltOf, outgoingOpacity, rimSample } from './geometry';
+import { bevelThickness, concentricRadius, cornerExponent, incomingOpacity, meltOf, outgoingOpacity, rimBend, rimSample } from './geometry';
 import { shadowField, SHADOW_MARGIN } from './material';
 
 describe('concentricity (§4)', () => {
@@ -60,9 +60,26 @@ describe('all bending is at the rim', () => {
     expect(rimSample(T, T)).toBe(T);
     expect(slope).toBeCloseTo(1, 3);
   });
-  it('bends hard at the rim: samples well inside, folding the outer band', () => {
-    expect(rimSample(0, T)).toBeGreaterThanOrEqual(1.5 * T);
-    // the mapping turns back on itself near the rim (mirrored, compressed band)
-    expect(rimSample(1, T)).toBeLessThan(rimSample(0, T));
+  it('bends both ways: the outer sliver pulls in what lies beyond the rim', () => {
+    expect(rimSample(0, T)).toBeLessThan(-T);            // samples > one bevel OUTSIDE the element
+    expect(rimSample(0.1 * T, T)).toBeLessThan(0);        // still outside just inside the rim
+  });
+  it('…and the band behind it samples inward and folds', () => {
+    const inward = rimSample(0.3 * T, T) - 0.3 * T;      // offset relative to the pixel itself
+    expect(inward).toBeGreaterThan(0.5 * T);
+    // folded: somewhere in the band the mapping runs backwards (mirrored content)
+    let folds = false;
+    for (let u = 0; u < T; u += 0.05) if (rimSample(u + 0.05, T) < rimSample(u, T)) folds = true;
+    expect(folds).toBe(true);
+  });
+});
+
+describe('signed rim profile is smooth (bug #1)', () => {
+  it('has no jump anywhere across the bevel', () => {
+    for (let i = 0; i < 1000; i++) expect(Math.abs(rimBend((i + 1) / 1000) - rimBend(i / 1000))).toBeLessThan(0.02);
+  });
+  it('fades to exactly zero with zero slope at the inner edge', () => {
+    expect(rimBend(1)).toBe(0);
+    expect(Math.abs(rimBend(0.999))).toBeLessThan(1e-6);
   });
 });

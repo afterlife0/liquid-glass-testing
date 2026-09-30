@@ -17,7 +17,7 @@ uniform int   uN;           // shape count (1..4)
 uniform float uK;           // smooth-union radius — the "liquid"
 uniform float uNexp;        // 2.0 = circular corner, 3.4 = superellipse
 uniform float uThick, uRefr, uPress, uMelt, uClear, uTime;
-uniform float uEdge;        // rim bend: device px sampled INWARD at the rim
+uniform float uEdge;        // rim bend scale, device px (≈ the bevel)
 uniform float uPx;          // device px per CSS px — keeps the rim hairline thin at any DPR
 uniform float uWK, uWW, uWS, uHoldR;
 uniform float uWGain;       // wave gain: offsets the 1/dpr of a device-px gradient; applied after the life floor
@@ -105,17 +105,22 @@ void main() {
   }
   float inside = smoothstep(1.2, -1.2, d);
 
-  // ── surface: ALL THE BENDING IS AT THE RIM. The flat middle passes the
-  //    backdrop through at true size — no magnification (as in the reference:
-  //    content behind the glass is not enlarged, only the edge bends light).
-  //    The bevel samples INWARD with a (1 − t)³ falloff reaching uEdge px at the
-  //    rim. uEdge is ~2× the bevel, so the outer band folds: content from deeper
-  //    inside is mirrored and compressed into the rim, the way a thick glass edge
-  //    bends light. (1 − t)³ has zero first and second derivative where the bevel
-  //    meets the flat middle, so that boundary never shows as a line (bug #1).
-  float t = clamp(-d/uThick, 0.0, 1.0);
-  float w = 1.0 - t;
-  vec2 offEdge = -nrm * (uEdge * w*w*w);
+  // ── surface: ALL THE BENDING IS AT THE RIM, AND IT BENDS BOTH WAYS.
+  //    The flat middle passes the backdrop through at true size (no lens).
+  //    Across the bevel the sample offset is signed (units of uEdge ≈ the bevel):
+  //      • outer sliver (t < RIM_OUT_BAND): samples OUTSIDE the element, up to
+  //        RIM_OUT × the bevel beyond the rim — what lies past the edge is pulled
+  //        in and compressed into it (the dune crest wrapped into the cap);
+  //      • behind it: samples INWARD, up to ~0.7× the bevel, folding content
+  //        from deeper inside out toward the rim (the yellow carried to the top).
+  //    Each lobe fades out with a cubic — zero value, slope and curvature where
+  //    it ends — so neither the flip nor the bevel's inner edge draws a line (bug #1).
+  const float RIM_OUT = 1.3, RIM_IN = 2.6, RIM_OUT_BAND = 0.3;
+  float t  = clamp(-d/uThick, 0.0, 1.0);
+  float w  = 1.0 - t;
+  float wo = max(0.0, 1.0 - t/RIM_OUT_BAND);
+  float bend = RIM_IN * w*w*w * smoothstep(0.05, 0.4, t) - RIM_OUT * wo*wo*wo;
+  vec2 offEdge = -nrm * (uEdge * bend);   // −nrm = inward; bend < 0 samples outside
 
   vec2 wg = waveGrad(p, cen, hb);
   if (uHold.z > 0.002) {                               // press-and-hold dimple
@@ -141,6 +146,12 @@ void main() {
     }
   } else g = (uClear > 0.5) ? texture(uSharp, uv + off/uRes).rgb
                             : texture(uPre,   uv + off/uRes).rgb;
+
+  // The outer sliver squeezes ~1.3 bevels of what lies beyond the rim into a
+  // few pixels; from the sharp source that aliases into dotted fringes. Take
+  // it from the blurred source there — pulled-in content reads soft. One
+  // unconditional fetch (a branch here would cost more, bug #4).
+  g = mix(g, texture(uPre, uv + off/uRes).rgb, wo * uClear);
 
   // ── vibrancy: a NEUTRAL lift that grows as the backdrop darkens. Never a hue.
   mediump float bl = dot(g, vec3(0.2126, 0.7152, 0.0722));

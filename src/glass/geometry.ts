@@ -40,14 +40,22 @@ export function shadowSpread(halfW: number, halfH: number): number {
  *  clearly structured. Only large surfaces (dialogs, sheets) take the heavy blur. */
 export const SHARP_CUT = 160;
 
-/** Rim bend: how far INWARD the rim samples, as a multiple of bevel thickness.
- *  Above 1/3 the (1 − t)³ mapping folds near the rim — intended: the outer band
- *  shows mirrored, compressed content, like the edge of thick glass. */
-export const EDGE_REACH = 1.5;
+/** Rim bend scale, as a multiple of bevel thickness (the Refraction slider multiplies it). */
+export const EDGE_REACH = 1.0;
+/** Signed rim profile — mirrors glass.frag. Outer sliver samples outside the element,
+ *  the band behind it samples inward and folds. */
+export const RIM_OUT = 1.3, RIM_IN = 2.6, RIM_OUT_BAND = 0.3;
 
-/** Inward sample distance for a pixel `u` px inside the rim (bevel thickness T). */
-export const rimSample = (u: number, T: number, reach = EDGE_REACH) =>
-  u + reach * T * Math.max(0, 1 - u / T) ** 3;
+const smoothstep = (a: number, b: number, x: number) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+/** Signed bend at bevel position t (0 = rim, 1 = inner edge), in bevel units: < 0 samples outside. */
+export function rimBend(t: number): number {
+  const w = 1 - clamp(t, 0, 1), wo = Math.max(0, 1 - t / RIM_OUT_BAND);
+  return RIM_IN * w ** 3 * smoothstep(0.05, 0.4, t) - RIM_OUT * wo ** 3;
+}
+
+/** Inward sample distance for a pixel `u` px inside the rim (bevel thickness T); negative = outside. */
+export const rimSample = (u: number, T: number, reach = EDGE_REACH) => u + reach * T * rimBend(u / T);
 
 export function shapeFromRect(r: { left: number; top: number; width: number; height: number }, radius?: number): Shape {
   const hw = r.width / 2, hh = r.height / 2;
