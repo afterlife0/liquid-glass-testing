@@ -17,7 +17,7 @@ uniform int   uN;           // shape count (1..4)
 uniform float uK;           // smooth-union radius — the "liquid"
 uniform float uNexp;        // 2.0 = circular corner, 3.4 = superellipse
 uniform float uThick, uRefr, uPress, uMelt, uClear, uTime;
-uniform float uEdge;        // rim bend scale, device px (≈ the bevel)
+uniform float uEdge;        // band width in device px (× the Refraction slider)
 uniform float uPx;          // device px per CSS px — keeps the rim hairline thin at any DPR
 uniform float uWK, uWW, uWS, uHoldR;
 uniform float uWGain;       // wave gain: offsets the 1/dpr of a device-px gradient; applied after the life floor
@@ -105,22 +105,19 @@ void main() {
   }
   float inside = smoothstep(1.2, -1.2, d);
 
-  // ── surface: ALL THE BENDING IS AT THE RIM, AND IT BENDS BOTH WAYS.
-  //    The flat middle passes the backdrop through at true size (no lens).
-  //    Across the bevel the sample offset is signed (units of uEdge ≈ the bevel):
-  //      • outer sliver (t < RIM_OUT_BAND): samples OUTSIDE the element, up to
-  //        RIM_OUT × the bevel beyond the rim — what lies past the edge is pulled
-  //        in and compressed into it (the dune crest wrapped into the cap);
-  //      • behind it: samples INWARD, up to ~0.7× the bevel, folding content
-  //        from deeper inside out toward the rim (the yellow carried to the top).
-  //    Each lobe fades out with a cubic — zero value, slope and curvature where
-  //    it ends — so neither the flip nor the bevel's inner edge draws a line (bug #1).
-  const float RIM_OUT = 1.3, RIM_IN = 2.0, RIM_OUT_BAND = 0.3;
+  // ── surface: EACH EDGE PULLS IN WHAT LIES JUST BEYOND IT. The top band shows
+  //    what is above the glass, the bottom band what is below, each end what is
+  //    beside it — so anything crossing the glass kinks one way at one edge and
+  //    the other way at the opposite edge. The middle stays at true size.
+  //    Profile (units of the band): a PLATEAU — a constant outward shift of
+  //    RIM_PULL across the outer part of the band, so the pulled-in content keeps
+  //    roughly its real size (the reference is ~1:1, not squashed) — then a smooth
+  //    return to zero (zero slope, no seam — bug #1). Monotone: never mirrors.
+  const float RIM_PULL = 0.75, RIM_HOLD = 0.3;
   float t  = clamp(-d/uThick, 0.0, 1.0);
   float w  = 1.0 - t;
-  float wo = max(0.0, 1.0 - t/RIM_OUT_BAND);
-  float bend = RIM_IN * w*w*w * smoothstep(0.05, 0.4, t) - RIM_OUT * wo*wo*wo;
-  vec2 offEdge = -nrm * (uEdge * bend);   // −nrm = inward; bend < 0 samples outside
+  float pull = 1.0 - smoothstep(RIM_HOLD, 1.0, t);        // 1 across the plateau → 0 at the middle
+  vec2 offEdge = nrm * (uEdge * RIM_PULL * pull);          // nrm points outward
 
   vec2 wg = waveGrad(p, cen, hb);
   if (uHold.z > 0.002) {                               // press-and-hold dimple
@@ -151,7 +148,7 @@ void main() {
   // few pixels; from the sharp source that aliases into dotted fringes. Take
   // it from the blurred source there — pulled-in content reads soft. One
   // unconditional fetch (a branch here would cost more, bug #4).
-  g = mix(g, texture(uPre, uv + off/uRes).rgb, wo * uClear);
+  g = mix(g, texture(uPre, uv + off/uRes).rgb, 0.35 * pull * uClear);   // pulled-in content reads a little softer
 
   // ── vibrancy: a NEUTRAL lift that grows as the backdrop darkens. Never a hue.
   mediump float bl = dot(g, vec3(0.2126, 0.7152, 0.0722));
