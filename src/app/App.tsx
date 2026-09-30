@@ -23,7 +23,10 @@ export interface AppSettings {
   hud: boolean;
 }
 
-const DEFAULTS: AppSettings = { material: 'glass', appearance: 'dark', ripples: true, refraction: 1, hud: true };
+const DEFAULTS: AppSettings = {
+  material: 'glass', appearance: 'dark', ripples: true, refraction: 1,
+  hud: typeof window !== 'undefined' && window.innerWidth > 900, // the HUD would cover the ledger on a phone
+};
 const KEY = 'ledgerline.settings.v1';
 
 function loadSettings(): AppSettings {
@@ -219,8 +222,8 @@ function Toolbar({ settingsRef, onSettings, settingsOpen, onNew, notify }: {
           aria-expanded={settingsOpen} elRef={settingsRef} onClick={onSettings}>
           <IconSettings />
         </GlassPanel>
-        <button type="button" className="btn-primary" onClick={onNew}>
-          <IconPlus width={18} height={18} /> Post entry
+        <button type="button" className="btn-primary" onClick={onNew} aria-label="Post entry">
+          <IconPlus width={18} height={18} /> <span className="label">Post entry</span>
         </button>
       </div>
     </GlassPanel>

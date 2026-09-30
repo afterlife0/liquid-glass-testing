@@ -12,7 +12,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "electron": "electron .",
-    "electron:dev": "VITE_DEV_SERVER_URL=http://localhost:5173 electron ."
+    "electron:dev": "VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "build:apk": "bash scripts/build-apk.sh"
   },
   "dependencies": {
     "react": "^19.1.0",

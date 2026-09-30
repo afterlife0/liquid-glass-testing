@@ -24,6 +24,27 @@ npm run build && npm run electron   # Electron against the production build
 npm test                 # geometry, waves/gestures, shadow field, contrast audit
 ```
 
+## Android demo APK
+
+```bash
+npm run build:apk        # → dist-android/ledgerline-glass.apk (≈330 KB)
+adb install -r dist-android/ledgerline-glass.apk
+```
+
+A WebView shell (`android/`) around the same Vite build — dashboard and Glass Lab (Settings → *Open Glass Lab*).
+Android 7.0+ (minSdk 24, targetSdk 34), no permissions beyond INTERNET, nothing fetched from the network.
+
+- Pages are served from `https://appassets.androidplatform.net/` out of the APK's assets by
+  `shouldInterceptRequest` — Chromium won't load ES modules from `file://`. Other hosts are blocked.
+- **No Android SDK needed.** `scripts/build-apk.sh` pulls its toolchain from Maven Central (checksum-verified):
+  `aapt2` and the framework resource table from Apktool, `dx` for dexing, Google's `apksig` for signing. The activity
+  compiles against `android/stubs`; every framework reference in the resulting dex was diffed against a build on the
+  real Android 14 framework (Robolectric `android-all`) and is identical.
+- Signed with APK Signature Scheme v2 (v1 is unnecessary at minSdk 24) using a **generated demo key**. Set
+  `KEYSTORE`, `KEYSTORE_PASS`, `KEY_ALIAS` to sign with your own.
+- Phone layout: the page never scrolls (the chart lives in the fixed canvas backdrop); the ledger scrolls inside its
+  panel. The lab shows one scene at a time behind a glass tab bar.
+
 URL switches (diagnostics): `?tier=b` forces Tier B, `?tier=a` skips only the software-rasteriser check (for
 headless visual testing), `?debug` exposes the renderer as `window.__glass`.
 

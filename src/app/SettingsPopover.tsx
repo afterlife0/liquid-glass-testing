@@ -101,6 +101,7 @@ export function SettingsPopover({ open, anchor, onClose, settings, setSettings, 
           Simulate context loss
         </button>
         <p className="note muted">GPU: {capability.renderer || 'n/a'}</p>
+        <a className="btn-small lab-link" href="./lab.html">Open Glass Lab →</a>
       </div>
     </GlassPanel>
   );

@@ -89,7 +89,8 @@ export function drawArt(canvas: HTMLCanvasElement, L: ArtLayout, scale: number, 
   pts.forEach(([x, y]) => { c.beginPath(); c.arc(x, y, 3.5, 0, Math.PI * 2); c.fill(); });
 
   c.fillStyle = a.label; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
-  SERIES.forEach((p, i) => c.fillText(p.label, X(i), y1 + 22));
+  const every = Math.ceil(52 / ((x1 - x0) / n)); // skip labels rather than let them collide on narrow screens
+  SERIES.forEach((p, i) => { if (i % every === 0) c.fillText(p.label, X(i), y1 + 22); });
 
   // big type watermark — gives the lens something with structure to magnify
   c.font = '800 132px system-ui, -apple-system, "Segoe UI", sans-serif';

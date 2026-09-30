@@ -3,8 +3,18 @@
 
 export interface Region { x: number; y: number; w: number; h: number }
 export interface LabLayout { wheel: Region; text: Region; list: Region; video: Region; alert: Region }
+export type SceneKey = keyof LabLayout;
+export const SCENES: SceneKey[] = ['wheel', 'text', 'list', 'video', 'alert'];
+
+/** Phones show one scene at a time, full-stage, above a tab bar. */
+export const isCompact = (W: number) => W < 760;
+export const TAB_BAR_SPACE = 92;
 
 export function layoutFor(W: number, H: number): LabLayout {
+  if (isCompact(W)) {
+    const stage = { x: 12, y: 52, w: W - 24, h: H - 52 - TAB_BAR_SPACE };
+    return { wheel: stage, text: stage, list: stage, video: stage, alert: stage };
+  }
   const g = 20, cw = (W - g * 4) / 3, rh = (H - g * 3 - 56) / 2, top = 56 + g;
   return {
     wheel: { x: g, y: top, w: cw, h: rh },
@@ -15,7 +25,9 @@ export function layoutFor(W: number, H: number): LabLayout {
   };
 }
 
-export function drawLab(canvas: HTMLCanvasElement, W: number, H: number, dpr: number, L: LabLayout) {
+/** `only`: draw a single scene (compact layout, where every scene shares the stage). */
+export function drawLab(canvas: HTMLCanvasElement, W: number, H: number, dpr: number, L: LabLayout, only?: SceneKey) {
+  const show = (k: SceneKey) => !only || only === k;
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   const c = canvas.getContext('2d')!;
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -28,7 +40,7 @@ export function drawLab(canvas: HTMLCanvasElement, W: number, H: number, dpr: nu
   };
 
   // 1 — colour wheel on studio grey
-  clip(L.wheel, 24, () => {
+  if (show('wheel')) clip(L.wheel, 24, () => {
     c.fillStyle = '#e9eaed'; c.fillRect(L.wheel.x, L.wheel.y, L.wheel.w, L.wheel.h);
     const cx = L.wheel.x + L.wheel.w / 2, cy = L.wheel.y + L.wheel.h / 2, R = Math.min(L.wheel.w, L.wheel.h) * 0.3;
     const cg = c.createConicGradient(-Math.PI / 2, cx, cy);
@@ -41,22 +53,23 @@ export function drawLab(canvas: HTMLCanvasElement, W: number, H: number, dpr: nu
   });
 
   // 2 — large body text (the archive / + capsule reference)
-  clip(L.text, 24, () => {
+  if (show('text')) clip(L.text, 24, () => {
     c.fillStyle = '#f2f2f4'; c.fillRect(L.text.x, L.text.y, L.text.w, L.text.h);
-    c.fillStyle = '#1c1c1e'; c.font = '500 30px system-ui, -apple-system, "Segoe UI", sans-serif';
+    const fs = Math.min(30, L.text.w / 11.5);
+    c.fillStyle = '#1c1c1e'; c.font = `500 ${fs}px system-ui, -apple-system, "Segoe UI", sans-serif`;
     const lines = ['Artists have long been', 'using neon lights. Light', 'helps define color, tone,', 'and is inseperable from', 'the world around us.', 'Glass reflects it back.'];
-    lines.forEach((l, i) => c.fillText(l, L.text.x + 24, L.text.y + 56 + i * 44));
+    lines.forEach((l, i) => c.fillText(l, L.text.x + 20, L.text.y + fs * 1.9 + i * fs * 1.47));
   });
 
   // 3 — list over a photo (the toolbar reference)
-  clip(L.list, 24, () => {
+  if (show('list')) clip(L.list, 24, () => {
     const r = L.list, split = r.y + r.h * 0.62;
     c.fillStyle = '#f4f4f6'; c.fillRect(r.x, r.y, r.w, r.h);
     const rows = [['Dog Rose', 'Rosa canina'], ['Sunflower', 'Helianthus annuus'], ['Lavender', 'Lavandula angustifolia'], ['Tulip', 'Tulipa gesneriana'], ['Daisy', 'Bellis perennis']];
     c.font = '400 17px system-ui, -apple-system, "Segoe UI", sans-serif';
     rows.forEach(([a, b], i) => {
       const y = r.y + 34 + i * 40;
-      c.fillStyle = '#111'; c.fillText(a, r.x + 24, y); c.fillText(b, r.x + 150, y);
+      c.fillStyle = '#111'; c.fillText(a, r.x + 20, y); c.fillText(b, r.x + Math.min(150, r.w * 0.38), y);
       c.fillStyle = 'rgba(0,0,0,0.08)'; c.fillRect(r.x + 24, y + 14, r.w - 48, 1);
     });
     const sky = c.createLinearGradient(0, split, 0, r.y + r.h);
@@ -73,7 +86,7 @@ export function drawLab(canvas: HTMLCanvasElement, W: number, H: number, dpr: nu
   });
 
   // 4 — dark "video" frame with vertical strands (the playback controls reference)
-  clip(L.video, 24, () => {
+  if (show('video')) clip(L.video, 24, () => {
     const r = L.video;
     const vg = c.createLinearGradient(0, r.y, 0, r.y + r.h);
     vg.addColorStop(0, '#10262c'); vg.addColorStop(1, '#0b1a20');
@@ -89,7 +102,7 @@ export function drawLab(canvas: HTMLCanvasElement, W: number, H: number, dpr: nu
   });
 
   // 5 — flowers against sky (the alert reference)
-  clip(L.alert, 24, () => {
+  if (show('alert')) clip(L.alert, 24, () => {
     const r = L.alert;
     const sky = c.createLinearGradient(0, r.y, 0, r.y + r.h);
     sky.addColorStop(0, '#2f7fe0'); sky.addColorStop(1, '#8cc2f5');
