@@ -129,7 +129,7 @@ void main() {
   mediump vec3 g;
   float ol = length(off);
   if (ol > 9.0) {
-    vec2 fr = off * min(0.075, 5.5/max(ol, 0.001));
+    vec2 fr = off * min(0.04, 3.0/max(ol, 0.001));   // gentle: the rim stays mostly neutral
     if (uClear > 0.5) {
       g.r = texture(uSharp, uv + (off+fr)/uRes).r;
       g.g = texture(uSharp, uv +  off    /uRes).g;
@@ -150,12 +150,18 @@ void main() {
   g  = mix(g, vec3(1.0), uMelt*0.90 + uPress*0.45);
 
   // ── veil: a small neutral lift so glass reads as a material over any content.
-  g = mix(g, vec3(1.0), 0.05);
+  g = mix(g, vec3(1.0), 0.02);
+
+  // ── fold band: partly desaturate what the rim folds in, strongest at the edge,
+  //    so saturated content behind (the petals) doesn't paint the whole rim.
+  //    Removes colour only — never adds a hue.
+  mediump float fl = dot(g, vec3(0.2126, 0.7152, 0.0722));
+  g = mix(g, vec3(fl), 0.45 * w*w);
 
   // ── rim: a hairline, never scaled by body opacity. Lit on BOTH diagonals —
   //    bright top-left, softer bottom-right, dim on the cross diagonal.
   mediump float edge = smoothstep(1.4*uPx, 0.0, abs(d + 0.8*uPx));
-  mediump float band = smoothstep(1.0, 0.0, t) * 0.05;
+  mediump float band = smoothstep(1.0, 0.0, t) * 0.02;
   mediump float lit  = dot(nrm, LIGHT);
   mediump float spec = pow(abs(lit), 1.6) * (lit > 0.0 ? 0.46 : 0.30);
   g += (edge*(spec + 0.10) + band)*(1.0 - uMelt*0.8) + edge*uPress*0.22;

@@ -103,13 +103,13 @@ with an old driver, and OS-level GPU usage readings. The HUD's frame counter is 
   shader had no input for it).
 - **Refraction profile, matched to the reference frames** (the brief's smoothstep bevel read as a soft shading shift):
   - *All bending at the rim, none in the middle*: the flat middle passes the backdrop through at **true size**
-    (no lens magnification). The bevel samples inward with a `(1 − t)³` falloff reaching `2 × thickness` at the
+    (no lens magnification). The bevel samples inward with a `(1 − t)³` falloff reaching `1.5 × thickness` at the
     rim, so the outer band folds — content is mirrored and compressed into the edge, like thick glass. `(1 − t)³` has
     zero first and second derivative where the bevel meets the middle, so that boundary never draws a line.
-  - *Wider bend band*: `min(22% of size, 16px)` instead of the brief's `min(20%, 11px)` — with the middle unmagnified
+  - *Wider bend band*: `min(20% of size, 14px)` instead of the brief's `min(20%, 11px)` — with the middle unmagnified
     all the optics live in this band, and at 11px it read as a hairline. Every element keeps a flat middle.
   - *Clear sampling*: controls, toolbars and cards (≤160px min-dimension) sample a half-res source with a light
-    2.5px gaussian; only large surfaces take the heavy blur, now 10px instead of 15px.
+    1px gaussian; only large surfaces take the heavy blur, now 10px instead of 15px.
   - *Hairline rim, lit on both diagonals* (bright top-left, softer bottom-right), DPR-scaled.
   - *Dark-backdrop lift 0.07* instead of 0.13, plus a 5% neutral veil: 0.13 turned controls over dark video
     into grey discs where the reference shows a faint lightening.

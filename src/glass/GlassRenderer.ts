@@ -18,7 +18,7 @@ import {
 export const MAX_DPR = 2;
 export const BLUR_CSS_PX = 10;
 /** Light softening for the clear (half-res) source. */
-export const CLEAR_CSS_PX = 2.5;
+export const CLEAR_CSS_PX = 1.0;
 /** Device-px scale on the shader's 40.0 wave-refraction constant. */
 export const REFRACT = 0.3;
 /** Wave gain per device px ratio. The brief's 22.0 was tuned at a larger refraction scale. */
@@ -173,17 +173,21 @@ export class GlassRenderer {
     document.addEventListener('animationstart', onRun);
     document.addEventListener('animationend', onEnd);
     document.addEventListener('animationcancel', onEnd);
-    // Layout can move a panel without resizing it (a sibling grows). Any DOM
-    // mutation wakes us for a few frames of rect reads — except the per-frame
-    // style writes we make ourselves, which would otherwise keep us awake.
+    // Layout can move a panel without resizing it (a sibling grows), and code can
+    // move one through its style. Any DOM mutation wakes us for a few frames of
+    // rect reads — except our own --glass-press writes, identified by diffing the
+    // style with that property removed (ignoring every style change on a panel
+    // would miss a panel moved via `style.left`).
+    const withoutPress = (css: string | null) => (css ?? '').replace(/--glass-press:[^;]*;?\s*/g, '').trim();
     const mo = new MutationObserver(records => {
       for (const r of records) {
-        if (r.type === 'attributes' && r.attributeName === 'style' && (r.target as Element).closest?.('[data-glass-driven]')) continue;
+        if (r.type === 'attributes' && r.attributeName === 'style'
+          && withoutPress(r.oldValue) === withoutPress((r.target as Element).getAttribute('style'))) continue;
         if ((r.target as Element).closest?.('[data-glass-quiet]') || r.target.parentElement?.closest('[data-glass-quiet]')) continue;
         this.wake(); return;
       }
     });
-    mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    mo.observe(document.body, { subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true });
     this.cleanup.push(() => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', wake, { capture: true });

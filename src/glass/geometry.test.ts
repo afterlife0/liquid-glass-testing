@@ -20,11 +20,11 @@ describe('concentricity (§4)', () => {
 describe('bevel is a fraction, never a constant', () => {
   it('keeps a flat middle on a 44px button', () => {
     const t = bevelThickness(22, 22, 22);
-    expect(t).toBeCloseTo(9.68);
+    expect(t).toBeCloseTo(8.8);
     expect(t).toBeLessThan(22 * 0.5);
   });
-  it('caps at 16px and never exceeds the corner radius (bug #1 seam)', () => {
-    expect(bevelThickness(200, 100, 20)).toBe(16);
+  it('caps at 14px and never exceeds the corner radius (bug #1 seam)', () => {
+    expect(bevelThickness(200, 100, 20)).toBe(14);
     expect(bevelThickness(200, 100, 9)).toBe(9);
   });
 });
