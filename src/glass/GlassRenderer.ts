@@ -99,11 +99,16 @@ export interface RendererStats {
   dpr: number;
 }
 
+/** Rim optics: this project's tuned rim, or the model recovered from macOS 26
+ *  (docs/reverse-engineering/liquid-glass.md). Both live in glass.frag. */
+export type GlassProfile = 'classic' | 'optics';
+
 export interface RendererSettings {
   refraction: number;   // 1 = tuned default
   ripples: boolean;
   reducedMotion: boolean;
   shadowAmount: number;
+  profile: GlassProfile;
 }
 
 interface GL {
@@ -116,7 +121,7 @@ interface GL {
 
 export class GlassRenderer {
   readonly surfaces = new Set<Surface>();
-  settings: RendererSettings = { refraction: 1, ripples: true, reducedMotion: false, shadowAmount: SHADOW_AMOUNT };
+  settings: RendererSettings = { refraction: 1, ripples: true, reducedMotion: false, shadowAmount: SHADOW_AMOUNT, profile: 'classic' };
   onStats: ((s: RendererStats) => void) | null = null;
   onContextChange: ((ok: boolean) => void) | null = null;
 
@@ -495,6 +500,7 @@ export class GlassRenderer {
     gl.uniform1f(u.uMelt, melt);
     gl.uniform1f(u.uClear, 2 * Math.min(s0.hw, s0.hh) <= SHARP_CUT ? 1 : 0);
     gl.uniform1f(u.uTime, now);
+    gl.uniform1f(u.uProfile, this.settings.profile === 'optics' ? 1 : 0);
 
     // waves
     const f = s.field;

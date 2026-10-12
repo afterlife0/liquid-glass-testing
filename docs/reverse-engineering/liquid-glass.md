@@ -472,6 +472,35 @@ is to follow those registers by hand from the `Resolved` struct field offsets.
 | Merge | smooth-min, constant `k` | smooth-min with `k · saturate(0.5 − 0.5 n_A·n_B)` | one-line change in `sdAll` |
 | Lens direction | SDF normal | normal blended toward the ellipse normal (`gradientOvalization`) | add an ovalization mix for capsules |
 
+### 8.1 The port: `uProfile`
+
+`glass.frag` now has both models. `uProfile` (a uniform, so its branches are coherent) selects between them:
+0 is the classic rim above, unchanged pixel for pixel, and 1 is the recovered optics. The toggle is
+`RendererSettings.profile` (`'classic' | 'optics'`), shown under Settings in the dashboard and in the Glass Lab
+header (<kbd>O</kbd> flips it; `lab.html?profile=optics` opens on it).
+
+The optics path ports these rows of the table:
+
+- **Rim profile.** Two samples, each displaced by `arc()`. The inner one reaches `2.0 × uEdge` inward over
+  `1.5 × bevel` (capped at the corner radius). The outer one reaches `1.3 × uEdge` outward over `0.9 × bevel`
+  and is blended in at up to 75 % over the outer `0.7 → 0.2 × bevel`. Apple blends linearly; the port uses
+  `smoothstep`, so the start of the blend can't draw a line.
+- **Blur.** `blurF` over the refracted depth: full blur at `4 × bevel` deep, 0.1 near the rim and 0.4 once
+  the sample lands outside. Apple steps from 0.1 to 0.4 at the rim; the port ramps over 3 px. Without a mip
+  chain, the blur level picks a mix of `uSharp` (3 px) and `uPre` (10 px). The outer sample always comes from
+  `uPre`, because what it pulls in is squeezed hard against the rim.
+- **Dispersion.** R ahead of and B behind the inner sample, at 5 % of its displacement (at most 3 CSS px).
+  It scales with `arc()`, with no threshold.
+- **Colour.** Edge bleed (`(1 − luma)²`, opacity 0.2) and 1.1 saturation. There is no veil and no fold
+  desaturation. The dark-backdrop lift, press and melt are shared with the classic path.
+- **Specular.** Key light (top-left) and fill light (bottom-right, 0.5). Each is a band `0.35 × bevel` deep
+  with linear falloff, masked by `(n·L − cos 110°)/(1 − cos 110°)` and shaped by Schlick's bias with amount 0.2.
+- **Merge.** `k · saturate(0.5 − 0.5 nA·nB)` in `sdAll`.
+
+The corners (supercircle) and lens ovalization are not ported. The fallback values are in points for a large
+layer, and the SwiftUI presets that override them were not recovered (§7). So the lengths above are ratios
+fitted to this project's bevel, not Apple's numbers.
+
 ---
 
 ## 9. Evidence ledger

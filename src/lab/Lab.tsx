@@ -1,5 +1,6 @@
 import { CSSProperties, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GlassProvider, useGlass, useGlassState } from '../glass/GlassContext';
+import type { GlassProfile } from '../glass/GlassRenderer';
 import { GlassPanel } from '../glass/GlassPanel';
 import { IconPlus } from '../app/icons';
 import { drawLab, isCompact, LabLayout, layoutFor, SceneKey, SCENES } from './scene';
@@ -50,7 +51,9 @@ function useViewport() {
   return v;
 }
 
-function Scene() {
+const PROFILE_LABEL: Record<GlassProfile, string> = { classic: 'Classic rim', optics: 'Recovered optics' };
+
+function Scene({ profile, setProfile }: { profile: GlassProfile; setProfile: (p: GlassProfile) => void }) {
   const glass = useGlass();
   const { tier, fallbackReason } = useGlassState();
   const { w, h } = useViewport();
@@ -81,6 +84,16 @@ function Scene() {
       <header className="lab-head">
         <strong>Glass Lab</strong>
         <span>Drag any glass element. Tier: {tier === 'glass' ? 'A · Liquid Glass' : `B · ${fallbackReason ?? 'Frosted'}`}</span>
+        {tier === 'glass' && (
+          <div className="seg lab-profile" role="radiogroup" aria-label="Rim optics" title="O toggles">
+            {(['classic', 'optics'] as const).map(k => (
+              <label key={k} className={`seg-opt ${profile === k ? 'on' : ''}`}>
+                <input type="radio" name="profile" checked={profile === k} onChange={() => setProfile(k)} />
+                {PROFILE_LABEL[k]}
+              </label>
+            ))}
+          </div>
+        )}
         <a href="./index.html">← Ledgerline</a>
       </header>
       {/* 1 — drop over the colour wheel */}
@@ -130,6 +143,19 @@ function Scene() {
 }
 
 export function Lab() {
-  const settings = useMemo(() => ({ ripples: true, refraction: 1, reducedMotion: false, shadowAmount: 0.16 }), []);
-  return <GlassProvider preferred="glass" settings={settings} batterySaver={false}><Scene /></GlassProvider>;
+  // ?profile=optics opens on the recovered optics; O flips between the two for A/B.
+  const [profile, setProfile] = useState<GlassProfile>(
+    () => (new URLSearchParams(location.search).get('profile') === 'optics' ? 'optics' : 'classic'));
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 'o' || e.key === 'O') && !e.metaKey && !e.ctrlKey && !e.altKey) setProfile(p => (p === 'optics' ? 'classic' : 'optics'));
+    };
+    addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey);
+  }, []);
+  const settings = useMemo(() => ({ ripples: true, refraction: 1, reducedMotion: false, shadowAmount: 0.16, profile }), [profile]);
+  return (
+    <GlassProvider preferred="glass" settings={settings} batterySaver={false}>
+      <Scene profile={profile} setProfile={setProfile} />
+    </GlassProvider>
+  );
 }

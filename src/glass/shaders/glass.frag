@@ -5,6 +5,9 @@
 //     the wave mirrors follow whichever shape a pixel belongs to after a split
 //     (with only uSh[0] the separated shapes clamp to a constant, shifted lens).
 //   • uWd carries a per-source direction + anisotropy for the flick gesture (§5).
+// uProfile picks the rim optics: 0 = this project's tuned rim (classic), 1 = the
+// model recovered from macOS 26's glass shaders (docs/reverse-engineering/liquid-glass.md).
+// It is a uniform, so the branches on it are coherent across the whole draw.
 precision highp float;
 out vec4 O;
 
@@ -25,6 +28,7 @@ uniform vec3  uHold;        // xy finger, z depth
 uniform vec4  uW[3];        // xy origin, z start time, w amplitude
 uniform vec3  uWd[3];       // xy throw direction, z anisotropy (0 = isotropic)
 uniform int   uWn;
+uniform float uProfile;     // 0 = classic, 1 = optics
 
 const vec2 LIGHT = vec2(-0.5523, -0.8337);   // normalize(vec2(-0.55, -0.83))
 
@@ -50,8 +54,11 @@ float sdAll(vec2 p, out vec2 nrm, out vec2 cen, out vec2 hb) {
   for (int i = 1; i < 4; i++) {
     if (i >= uN) break;
     vec2 ni; float di = sdSq(p - uSh[i].xy, uSh[i].zw, uR[i], uNexp, ni);
-    float h = clamp(0.5 + 0.5*(d - di)/max(uK, 1e-4), 0.0, 1.0);
-    d   = mix(d, di, h) - uK*h*(1.0 - h);
+    // Optics: Apple's sdf_union scales the radius by how much the two surfaces face
+    // each other (report §3.3) — walls side by side neck, stacked ones don't swell.
+    float k = uK * mix(1.0, clamp(0.5 - 0.5*dot(n, ni), 0.0, 1.0), uProfile);
+    float h = clamp(0.5 + 0.5*(d - di)/max(k, 1e-4), 0.0, 1.0);
+    d   = mix(d, di, h) - k*h*(1.0 - h);
     n   = normalize(mix(n, ni, h) + 1e-6);
     cen = mix(cen, uSh[i].xy, h);
     hb  = mix(hb,  uSh[i].zw, h);
@@ -89,6 +96,63 @@ vec2 waveGrad(vec2 p, vec2 c, vec2 hb) {
   return acc * 22.0 * uWGain;
 }
 
+/* ── Optics profile (uProfile = 1): macOS 26's glass_background model, report §4 and §6.
+   Lengths are in units of the bevel (uThick, ≈ 16 CSS px on a panel) and its bend
+   scale (uEdge, which carries the Refraction slider). Apple's filter fallbacks are
+   for a large layer in points — inner −150 over 60, outer +100 over 50, outer blend
+   over the last 11…3 pt at 75 % — and SwiftUI presets override them, so the ratios
+   below are fitted to this project's bevel rather than copied. */
+const float OPT_IN = 2.0,  OPT_IN_H = 1.5;     // inner sample: inward reach, depth (×uEdge, ×uThick)
+const float OPT_OUT = 1.3, OPT_OUT_H = 0.9;    // outer sample: outward reach, depth
+const float OPT_BLEND = 0.75;                  // inputRefractionOpacity
+const float OPT_DEEP = 4.0;                    // refracted depth that takes the full blur (×uThick)
+const float SHARP_LVL = 0.3;                   // uSharp's blur as a fraction of uPre's (3 vs 10 CSS px)
+const float OPT_SAT = 1.1;                     // face colour matrix saturation; replaces the veil
+const float OPT_HI = 0.50, OPT_FILL = 0.5;     // key light strength, fill as a fraction of it
+const float OPT_HI_H = 0.35;                   // highlight band depth (×uThick)
+const float OPT_SPREAD = -0.342;               // cos(110°): the key lights ~220° of the rim
+const float OPT_BIAS = 0.2;                    // Schlick bias amount; < 0.5 gathers light at the rim
+const vec3  LUMA = vec3(0.2126, 0.7152, 0.0722);
+
+/* Quarter-circle bevel: 1 at the rim, 0 at depth h, arriving with zero slope. */
+float arc(float depth, float h) {
+  float t = clamp(depth / max(h, 1e-3), 0.0, 1.0);
+  return 1.0 - sqrt(t * (2.0 - t));
+}
+
+/* Blur for a sample landing at signed depth x: all of it deep inside, 0.1 near the
+   rim, 0.4 once it lands outside. Apple steps from 0.1 to 0.4 at the rim; this ramps
+   over 3 px so a sample crossing it can't draw a line. */
+float blurF(float x, float deep) {
+  if (x > -3.0*uPx) return mix(0.4, 0.1, clamp(-x / (3.0*uPx), 0.0, 1.0));
+  return mix(0.1, 1.0, clamp((-3.0*uPx - x) / max(deep - 3.0*uPx, 1.0), 0.0, 1.0));
+}
+
+/* Two blur levels stand in for Apple's mip chain: lvl is in units of uPre's blur. */
+mediump vec3 backdrop(vec2 uv, float lvl) {
+  return mix(texture(uSharp, uv).rgb, texture(uPre, uv).rgb, smoothstep(SHARP_LVL, 1.0, lvl));
+}
+
+/* Displaced sample with chromatic aberration along the displacement (R ahead, B
+   behind, as chromaticAberrationMap), its width following the bevel, not a threshold. */
+mediump vec3 bent(vec2 uv, vec2 off, float lvl) {
+  vec2 fr = off * 0.05;
+  float fl = length(fr);
+  if (fl < 0.5) return backdrop(uv + off/uRes, lvl);
+  fr *= min(1.0, 3.0*uPx / fl);
+  return vec3(backdrop(uv + (off+fr)/uRes, lvl).r,
+              backdrop(uv +  off    /uRes, lvl).g,
+              backdrop(uv + (off-fr)/uRes, lvl).b);
+}
+
+/* sdf_glass_highlight: a band with linear falloff, masked by direction, shaped by
+   Schlick's bias. Key and fill are two of these on opposite edges (§6.2–6.3). */
+float rimLight(float depth, float hh, vec2 n, vec2 L) {
+  float h = (1.0 - clamp(depth / hh, 0.0, 1.0))
+          * clamp((dot(n, L) - OPT_SPREAD) / (1.0 - OPT_SPREAD), 0.0, 1.0);
+  return h / ((1.0/OPT_BIAS - 2.0) * (1.0 - h) + 1.0);
+}
+
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
   vec2 nrm, cen, hb; float d = sdAll(p, nrm, cen, hb);
@@ -104,78 +168,113 @@ void main() {
     O = vec4(vec3(bloom), bloom); return;              // premultiplied white == screen blend
   }
   float inside = smoothstep(1.2, -1.2, d);
-
-  // ── surface: ALL THE BENDING IS AT THE RIM, AND IT BENDS BOTH WAYS.
-  //    The flat middle passes the backdrop through at true size (no lens).
-  //    Across the bevel the sample offset is signed (units of uEdge ≈ the bevel):
-  //      • outer sliver (t < RIM_OUT_BAND): samples OUTSIDE the element, up to
-  //        RIM_OUT × the bevel beyond the rim — what lies past the edge is pulled
-  //        in and compressed into it (the dune crest wrapped into the cap);
-  //      • behind it: samples INWARD, up to ~0.7× the bevel, folding content
-  //        from deeper inside out toward the rim (the yellow carried to the top).
-  //    Each lobe fades out with a cubic — zero value, slope and curvature where
-  //    it ends — so neither the flip nor the bevel's inner edge draws a line (bug #1).
-  const float RIM_OUT = 1.5, RIM_IN = 2.3, RIM_OUT_BAND = 0.3;
   float t  = clamp(-d/uThick, 0.0, 1.0);
   float w  = 1.0 - t;
-  float wo = max(0.0, 1.0 - t/RIM_OUT_BAND);
-  float bend = RIM_IN * w*w*w * smoothstep(0.05, 0.4, t) - RIM_OUT * wo*wo*wo;
-  vec2 offEdge = -nrm * (uEdge * bend);   // −nrm = inward; bend < 0 samples outside
 
   vec2 wg = waveGrad(p, cen, hb);
   if (uHold.z > 0.002) {                               // press-and-hold dimple
     vec2 dv = p - uHold.xy; float s2 = uHoldR*uHoldR;
     wg += uHold.z * 0.6 * exp(-dot(dv,dv)/(2.0*s2)) * dv/s2 * 22.0;
   }
-  vec2 off  = (offEdge - wg * 40.0 * uRefr) * (1.0 - uMelt*0.7);
   vec2 uv   = p / uRes;
-
-  // ── sample, with dispersion only where the bend is wide enough to separate
   mediump vec3 g;
-  float ol = length(off);
-  if (ol > 9.0) {
-    vec2 fr = off * min(0.04, 3.0/max(ol, 0.001));   // gentle: the rim stays mostly neutral
-    if (uClear > 0.5) {
-      g.r = texture(uSharp, uv + (off+fr)/uRes).r;
-      g.g = texture(uSharp, uv +  off    /uRes).g;
-      g.b = texture(uSharp, uv + (off-fr)/uRes).b;
-    } else {
-      g.r = texture(uPre,   uv + (off+fr)/uRes).r;
-      g.g = texture(uPre,   uv +  off    /uRes).g;
-      g.b = texture(uPre,   uv + (off-fr)/uRes).b;
-    }
-  } else g = (uClear > 0.5) ? texture(uSharp, uv + off/uRes).rgb
-                            : texture(uPre,   uv + off/uRes).rgb;
 
-  // The outer sliver squeezes ~1.3 bevels of what lies beyond the rim into a
-  // few pixels; from the sharp source that aliases into dotted fringes. Take
-  // it from the blurred source there — pulled-in content reads soft. One
-  // unconditional fetch (a branch here would cost more, bug #4).
-  g = mix(g, texture(uPre, uv + off/uRes).rgb, wo * uClear);
+  if (uProfile < 0.5) {
+    // ── surface: ALL THE BENDING IS AT THE RIM, AND IT BENDS BOTH WAYS.
+    //    The flat middle passes the backdrop through at true size (no lens).
+    //    Across the bevel the sample offset is signed (units of uEdge ≈ the bevel):
+    //      • outer sliver (t < RIM_OUT_BAND): samples OUTSIDE the element, up to
+    //        RIM_OUT × the bevel beyond the rim — what lies past the edge is pulled
+    //        in and compressed into it (the dune crest wrapped into the cap);
+    //      • behind it: samples INWARD, up to ~0.7× the bevel, folding content
+    //        from deeper inside out toward the rim (the yellow carried to the top).
+    //    Each lobe fades out with a cubic — zero value, slope and curvature where
+    //    it ends — so neither the flip nor the bevel's inner edge draws a line (bug #1).
+    const float RIM_OUT = 1.5, RIM_IN = 2.3, RIM_OUT_BAND = 0.3;
+    float wo = max(0.0, 1.0 - t/RIM_OUT_BAND);
+    float bend = RIM_IN * w*w*w * smoothstep(0.05, 0.4, t) - RIM_OUT * wo*wo*wo;
+    vec2 offEdge = -nrm * (uEdge * bend);   // −nrm = inward; bend < 0 samples outside
+    vec2 off  = (offEdge - wg * 40.0 * uRefr) * (1.0 - uMelt*0.7);
+
+    // ── sample, with dispersion only where the bend is wide enough to separate
+    float ol = length(off);
+    if (ol > 9.0) {
+      vec2 fr = off * min(0.04, 3.0/max(ol, 0.001));   // gentle: the rim stays mostly neutral
+      if (uClear > 0.5) {
+        g.r = texture(uSharp, uv + (off+fr)/uRes).r;
+        g.g = texture(uSharp, uv +  off    /uRes).g;
+        g.b = texture(uSharp, uv + (off-fr)/uRes).b;
+      } else {
+        g.r = texture(uPre,   uv + (off+fr)/uRes).r;
+        g.g = texture(uPre,   uv +  off    /uRes).g;
+        g.b = texture(uPre,   uv + (off-fr)/uRes).b;
+      }
+    } else g = (uClear > 0.5) ? texture(uSharp, uv + off/uRes).rgb
+                              : texture(uPre,   uv + off/uRes).rgb;
+
+    // The outer sliver squeezes ~1.3 bevels of what lies beyond the rim into a
+    // few pixels; from the sharp source that aliases into dotted fringes. Take
+    // it from the blurred source there — pulled-in content reads soft. One
+    // unconditional fetch (a branch here would cost more, bug #4).
+    g = mix(g, texture(uPre, uv + off/uRes).rgb, wo * uClear);
+  } else {
+    // ── OPTICS: two samples, each displaced along the normal by the quarter-circle
+    //    bevel. The inner one reaches inward and carries deeper content out to the
+    //    rim; the outer one, blended in over the last stretch of the rim, pulls in
+    //    what lies beyond it. The middle (past the bevel) is true size, as before.
+    //    Each sample takes the blur its landing depth calls for: full deep inside,
+    //    least near the rim. Apple blends the outer sample in linearly; smoothstep
+    //    keeps the start of the blend from drawing a line (bug #1).
+    float depth = -d, melt = 1.0 - uMelt*0.7;
+    vec2  lens  = -wg * 40.0 * uRefr;
+    float aIn   = -OPT_IN  * uEdge * arc(depth, min(OPT_IN_H * uThick, uR[0]));  // never past the corner
+    float aOut  =  OPT_OUT * uEdge * arc(depth, OPT_OUT_H * uThick);
+    float wOut  = smoothstep(-0.7*uThick, -0.2*uThick, d) * OPT_BLEND;
+    float base  = uClear > 0.5 ? SHARP_LVL : 1.0;      // small controls stay clear
+    g = bent(uv, nrm*(aIn*melt) + lens, base * blurF(d + aIn, OPT_DEEP * uThick));
+    // What the outer sample pulls in is squeezed hard against the rim: always soft.
+    g = mix(g, texture(uPre, uv + (nrm*(aOut*melt) + lens)/uRes).rgb, wOut);
+
+    // Edge bleed: blurred light from beyond the rim tints dark glass near its edge,
+    // (1 − luma)² weighted. Apple: amount 400 over 500, ramp −400 → −42, opacity 0.2.
+    float hm = min(hb.x, hb.y);
+    mediump float lb = dot(g, LUMA);
+    mediump float wb = (1.0 - lb)*(1.0 - lb) * clamp((d + hm)/(0.9*hm), 0.0, 1.0);
+    g = mix(g, texture(uPre, uv + nrm*(0.8*hm*arc(depth, hm))/uRes).rgb, wb*wb*0.2);
+    g = max(mix(vec3(dot(g, LUMA)), g, OPT_SAT), 0.0);
+  }
 
   // ── vibrancy: a NEUTRAL lift that grows as the backdrop darkens. Never a hue.
-  mediump float bl = dot(g, vec3(0.2126, 0.7152, 0.0722));
+  mediump float bl = dot(g, LUMA);
   //    0.07, not the brief's 0.13: against the reference, 0.13 turned controls over
   //    dark video into grey discs where Apple's are a faint lightening.
   g += vec3((1.0 - smoothstep(0.0, 0.5, bl)) * 0.07);
   g  = mix(g, vec3(1.0), uMelt*0.90 + uPress*0.45);
 
-  // ── veil: a small neutral lift so glass reads as a material over any content.
-  g = mix(g, vec3(1.0), 0.02);
+  if (uProfile < 0.5) {
+    // ── veil: a small neutral lift so glass reads as a material over any content.
+    g = mix(g, vec3(1.0), 0.02);
 
-  // ── fold band: partly desaturate what the rim folds in, strongest at the edge,
-  //    so saturated content behind (the petals) doesn't paint the whole rim.
-  //    Removes colour only — never adds a hue.
-  mediump float fl = dot(g, vec3(0.2126, 0.7152, 0.0722));
-  g = mix(g, vec3(fl), 0.45 * w*w);
+    // ── fold band: partly desaturate what the rim folds in, strongest at the edge,
+    //    so saturated content behind (the petals) doesn't paint the whole rim.
+    //    Removes colour only — never adds a hue.
+    mediump float fl = dot(g, LUMA);
+    g = mix(g, vec3(fl), 0.45 * w*w);
 
-  // ── rim: a hairline, never scaled by body opacity. Lit on BOTH diagonals —
-  //    bright top-left, softer bottom-right, dim on the cross diagonal.
-  mediump float edge = smoothstep(1.4*uPx, 0.0, abs(d + 0.8*uPx));
-  mediump float band = smoothstep(1.0, 0.0, t) * 0.02;
-  mediump float lit  = dot(nrm, LIGHT);
-  mediump float spec = pow(abs(lit), 1.6) * (lit > 0.0 ? 0.46 : 0.30);
-  g += (edge*(spec + 0.10) + band)*(1.0 - uMelt*0.8) + edge*uPress*0.22;
+    // ── rim: a hairline, never scaled by body opacity. Lit on BOTH diagonals —
+    //    bright top-left, softer bottom-right, dim on the cross diagonal.
+    mediump float edge = smoothstep(1.4*uPx, 0.0, abs(d + 0.8*uPx));
+    mediump float band = smoothstep(1.0, 0.0, t) * 0.02;
+    mediump float lit  = dot(nrm, LIGHT);
+    mediump float spec = pow(abs(lit), 1.6) * (lit > 0.0 ? 0.46 : 0.30);
+    g += (edge*(spec + 0.10) + band)*(1.0 - uMelt*0.8) + edge*uPress*0.22;
+  } else {
+    // ── rim: a key light top-left and a fill bottom-right, each a band that falls
+    //    off over the bevel instead of a hairline.
+    float hh = OPT_HI_H * uThick;
+    mediump float hi = rimLight(-d, hh, nrm, LIGHT) + OPT_FILL * rimLight(-d, hh, nrm, -LIGHT);
+    g += hi * (OPT_HI*(1.0 - uMelt*0.8) + uPress*0.22);
+  }
 
   // ── wave shading is DIRECTIONAL and signed — a flat surface gets exactly zero.
   mediump float sheen = dot(wg, LIGHT);

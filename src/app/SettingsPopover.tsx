@@ -91,6 +91,10 @@ export function SettingsPopover({ open, anchor, onClose, settings, setSettings, 
             onChange={e => setSettings({ refraction: +e.target.value })} />
           <output>{settings.refraction.toFixed(2)}</output>
         </label>
+        <div className="seg" role="radiogroup" aria-label="Rim optics">
+          <Radio k="profile" v="classic" label="Classic rim" disabled={tier !== 'glass'} />
+          <Radio k="profile" v="optics" label="Recovered optics" disabled={tier !== 'glass'} />
+        </div>
 
         <h3>Diagnostics</h3>
         <label className="row">

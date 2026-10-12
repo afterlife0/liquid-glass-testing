@@ -6,6 +6,8 @@ body { background: #dfe1e5; color: #111; }
 }
 .lab-head strong { font-size: 16px; }
 .lab-head a { margin-left: auto; color: #1d4ed8; }
+.lab-profile { background: rgba(0, 0, 0, 0.08); }
+.lab-profile .seg-opt { padding: 5px 10px; font-size: 12.5px; white-space: nowrap; }
 .lab-glass { position: absolute; cursor: grab; touch-action: none; user-select: none; }
 .lab-glass:active { cursor: grabbing; }
 .lab-row { display: flex; align-items: center; justify-content: space-evenly; }

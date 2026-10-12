@@ -7,6 +7,9 @@ material for an Electron + Vite accounting app (TypeScript, React, Chromium 120+
 
 **Glass Lab** (`lab.html`) recreates the WWDC25 reference scenes — colour-wheel drop, capsule over text,
 toolbar over a list and photo, controls over dark video, alert over flowers. Every element is draggable.
+Its header toggles the rim between this project's **Classic rim** and the **Recovered optics** ported from macOS 26
+(press <kbd>O</kbd> to flip, or open `lab.html?profile=optics`); the dashboard has the same toggle under Settings.
+See [`docs/reverse-engineering/liquid-glass.md`](docs/reverse-engineering/liquid-glass.md) §8.
 
 ![Glass Lab](docs/screenshots/glass-lab.png)
 

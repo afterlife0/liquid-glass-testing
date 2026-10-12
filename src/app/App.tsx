@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GlassLayer, GlassProvider, Tier, useGlass, useGlassState } from '../glass/GlassContext';
+import type { GlassProfile } from '../glass/GlassRenderer';
 import { GlassPanel } from '../glass/GlassPanel';
 import { MeltMenu, SplitControl } from '../glass/Morph';
 import { Backdrop } from './Backdrop';
@@ -20,12 +21,13 @@ export interface AppSettings {
   appearance: 'system' | Scheme;
   ripples: boolean;
   refraction: number;
+  profile: GlassProfile;
   hud: boolean;
   batterySaver: boolean;
 }
 
 const DEFAULTS: AppSettings = {
-  material: 'glass', appearance: 'dark', ripples: true, refraction: 1,
+  material: 'glass', appearance: 'dark', ripples: true, refraction: 1, profile: 'classic',
   hud: typeof window !== 'undefined' && window.innerWidth > 900, // the HUD would cover the ledger on a phone
   batterySaver: false, // a demo exists to show the glass; opt in to the low-battery fallback
 };
@@ -64,8 +66,11 @@ export function App() {
   // Reduced transparency means no translucency at all — the flat theme.
   const material: Tier = reducedTransparency ? 'flat' : settings.material;
   const rendererSettings = useMemo(
-    () => ({ ripples: settings.ripples, refraction: settings.refraction, reducedMotion, shadowAmount: scheme === 'dark' ? 0.30 : 0.18 }),
-    [settings.ripples, settings.refraction, reducedMotion, scheme],
+    () => ({
+      ripples: settings.ripples, refraction: settings.refraction, profile: settings.profile,
+      reducedMotion, shadowAmount: scheme === 'dark' ? 0.30 : 0.18,
+    }),
+    [settings.ripples, settings.refraction, settings.profile, reducedMotion, scheme],
   );
 
   return (
