@@ -6,3 +6,4 @@ dist
 android/.tools
 android/build
 dist-android
+__pycache__/

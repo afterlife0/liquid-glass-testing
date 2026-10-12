@@ -80,6 +80,14 @@ src/app/             the accounting demo (tokens, backdrop art, ledger, dialog, 
 electron/main.cjs    BrowserWindow with backgroundMaterial: 'mica'
 ```
 
+## How Apple does it
+
+[`docs/reverse-engineering/liquid-glass.md`](docs/reverse-engineering/liquid-glass.md) is a static teardown of
+macOS 26.7's Liquid Glass. It covers the SwiftUI → DesignLibrary → Core Animation → Metal pipeline, the recovered
+shader maths (quarter-circle refraction profile, two-sample rim, depth-dependent blur, SDF highlights, vibrant
+shadow), Apple's built-in parameter defaults, and how they compare with this renderer. It was done with
+[REA](https://github.com/morluto/rea) + Ghidra; the helper scripts are in `tools/reverse-engineering/`.
+
 ## What was verified
 
 Verified in headless Chromium (SwiftShader, via the `?tier=a` override) and by `npm test`:
