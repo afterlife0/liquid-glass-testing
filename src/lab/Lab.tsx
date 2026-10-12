@@ -1,7 +1,8 @@
-import { CSSProperties, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GlassProvider, useGlass, useGlassState } from '../glass/GlassContext';
-import type { GlassProfile } from '../glass/GlassRenderer';
+import { GlassProfile, SETTING_RANGES } from '../glass/GlassRenderer';
 import { GlassPanel } from '../glass/GlassPanel';
+import { Slider } from '../app/controls';
 import { IconPlus } from '../app/icons';
 import { drawLab, isCompact, LabLayout, layoutFor, SceneKey, SCENES } from './scene';
 
@@ -53,13 +54,53 @@ function useViewport() {
 
 const PROFILE_LABEL: Record<GlassProfile, string> = { classic: 'Classic rim', optics: 'Recovered optics' };
 
-function Scene({ profile, setProfile }: { profile: GlassProfile; setProfile: (p: GlassProfile) => void }) {
+interface Tuning { profile: GlassProfile; blur: number; thickness: number }
+const DEFAULT_TUNING: Tuning = { profile: 'classic', blur: 1, thickness: 1 };
+
+/** ?profile=optics&blur=1.5&thickness=2 opens the lab already tuned. */
+function tuningFromUrl(): Tuning {
+  const q = new URLSearchParams(location.search);
+  const num = (k: 'blur' | 'thickness') => {
+    const v = parseFloat(q.get(k) ?? ''), r = SETTING_RANGES[k];
+    return Number.isFinite(v) ? Math.min(r.max, Math.max(r.min, v)) : DEFAULT_TUNING[k];
+  };
+  return { profile: q.get('profile') === 'optics' ? 'optics' : 'classic', blur: num('blur'), thickness: num('thickness') };
+}
+
+/** Rim optics, blur and thickness for the whole lab. Frosted: it sits over the art like a popover. */
+function TunePanel({ tuning, setTuning, tier }: { tuning: Tuning; setTuning: (p: Partial<Tuning>) => void; tier: string }) {
+  return (
+    <GlassPanel frost className="lab-tune" z={30} role="group" aria-label="Glass tuning">
+      <div className="seg lab-profile" role="radiogroup" aria-label="Rim optics" title="O toggles">
+        {(['classic', 'optics'] as const).map(k => (
+          <label key={k} className={`seg-opt ${tuning.profile === k ? 'on' : ''} ${tier !== 'glass' ? 'disabled' : ''}`}>
+            <input type="radio" name="profile" checked={tuning.profile === k} disabled={tier !== 'glass'}
+              onChange={() => setTuning({ profile: k })} />
+            {PROFILE_LABEL[k]}
+          </label>
+        ))}
+      </div>
+      <Slider label="Blur" {...SETTING_RANGES.blur} value={tuning.blur} disabled={tier === 'flat'}
+        onChange={v => setTuning({ blur: v })} />
+      <Slider label="Thickness" {...SETTING_RANGES.thickness} value={tuning.thickness} disabled={tier !== 'glass'}
+        onChange={v => setTuning({ thickness: v })} />
+      <button type="button" className="btn-small" onClick={() => setTuning(DEFAULT_TUNING)}>Reset</button>
+    </GlassPanel>
+  );
+}
+
+function Scene({ tuning, setTuning }: { tuning: Tuning; setTuning: (p: Partial<Tuning>) => void }) {
   const glass = useGlass();
   const { tier, fallbackReason } = useGlassState();
   const { w, h } = useViewport();
   const L: LabLayout = useMemo(() => layoutFor(w, h), [w, h]);
   const compact = isCompact(w);
   const [active, setActive] = useState<SceneKey>('wheel');
+  const [tuneOpen, setTuneOpen] = useState(() => !isCompact(innerWidth)); // a phone opens it on demand
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTuneOpen(false); };
+    addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey);
+  }, []);
   const on = (k: SceneKey) => !compact || active === k;
   const art = useRef<HTMLCanvasElement | null>(null);
   const flat = useRef<HTMLCanvasElement>(null);
@@ -84,18 +125,12 @@ function Scene({ profile, setProfile }: { profile: GlassProfile; setProfile: (p:
       <header className="lab-head">
         <strong>Glass Lab</strong>
         <span>Drag any glass element. Tier: {tier === 'glass' ? 'A · Liquid Glass' : `B · ${fallbackReason ?? 'Frosted'}`}</span>
-        {tier === 'glass' && (
-          <div className="seg lab-profile" role="radiogroup" aria-label="Rim optics" title="O toggles">
-            {(['classic', 'optics'] as const).map(k => (
-              <label key={k} className={`seg-opt ${profile === k ? 'on' : ''}`}>
-                <input type="radio" name="profile" checked={profile === k} onChange={() => setProfile(k)} />
-                {PROFILE_LABEL[k]}
-              </label>
-            ))}
-          </div>
-        )}
+        <button type="button" className="lab-tune-btn" aria-expanded={tuneOpen} onClick={() => setTuneOpen(o => !o)}>
+          Tune {tuneOpen ? '▴' : '▾'}
+        </button>
         <a href="./index.html">← Ledgerline</a>
       </header>
+      {tuneOpen && <TunePanel tuning={tuning} setTuning={setTuning} tier={tier} />}
       {/* 1 — drop over the colour wheel */}
       {on('wheel') && <Drag key={`wheel${w}`} x={cx(L.wheel) - 110} y={cy(L.wheel) - 95} w={84} h={84} />}
       {/* 2 — capsule over large text */}
@@ -143,19 +178,23 @@ function Scene({ profile, setProfile }: { profile: GlassProfile; setProfile: (p:
 }
 
 export function Lab() {
-  // ?profile=optics opens on the recovered optics; O flips between the two for A/B.
-  const [profile, setProfile] = useState<GlassProfile>(
-    () => (new URLSearchParams(location.search).get('profile') === 'optics' ? 'optics' : 'classic'));
+  const [tuning, setTuningState] = useState(tuningFromUrl);
+  const setTuning = useCallback((p: Partial<Tuning>) => setTuningState(t => ({ ...t, ...p })), []);
+  // O flips the rim optics for A/B.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key === 'o' || e.key === 'O') && !e.metaKey && !e.ctrlKey && !e.altKey) setProfile(p => (p === 'optics' ? 'classic' : 'optics'));
+      if ((e.key === 'o' || e.key === 'O') && !e.metaKey && !e.ctrlKey && !e.altKey)
+        setTuningState(t => ({ ...t, profile: t.profile === 'optics' ? 'classic' : 'optics' }));
     };
     addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey);
   }, []);
-  const settings = useMemo(() => ({ ripples: true, refraction: 1, reducedMotion: false, shadowAmount: 0.16, profile }), [profile]);
+  const settings = useMemo(
+    () => ({ ripples: true, refraction: 1, reducedMotion: false, shadowAmount: 0.16, ...tuning }),
+    [tuning],
+  );
   return (
     <GlassProvider preferred="glass" settings={settings} batterySaver={false}>
-      <Scene profile={profile} setProfile={setProfile} />
+      <Scene tuning={tuning} setTuning={setTuning} />
     </GlassProvider>
   );
 }

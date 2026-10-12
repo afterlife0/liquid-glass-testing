@@ -27,6 +27,12 @@ describe('bevel is a fraction, never a constant', () => {
     expect(bevelThickness(200, 100, 20)).toBe(16);
     expect(bevelThickness(200, 100, 9)).toBe(9);
   });
+  it('scales with the Thickness setting, but the corner radius still caps it', () => {
+    expect(bevelThickness(22, 22, 22, 2)).toBeCloseTo(19.36);
+    expect(bevelThickness(200, 100, 40, 2)).toBe(32);
+    expect(bevelThickness(200, 100, 20, 2.5)).toBe(20);
+    expect(bevelThickness(22, 22, 22, 0.25)).toBeCloseTo(2.42);
+  });
 });
 
 describe('transitions (§6)', () => {

@@ -26,9 +26,10 @@ export const BEVEL_FRACTION = 0.22;
  *  (the middle is not magnified), and at 11px the reference's heavy edge read as a hairline. */
 export const BEVEL_MAX = 16;
 
-export function bevelThickness(halfW: number, halfH: number, radius: number): number {
+/** `scale` is the Thickness setting: it scales the fraction and the cap, never the radius limit. */
+export function bevelThickness(halfW: number, halfH: number, radius: number, scale = 1): number {
   const size = 2 * Math.min(halfW, halfH);
-  return Math.max(1, Math.min(size * BEVEL_FRACTION, BEVEL_MAX, radius));
+  return Math.max(1, Math.min(size * BEVEL_FRACTION * scale, BEVEL_MAX * scale, radius));
 }
 
 export function shadowSpread(halfW: number, halfH: number): number {

@@ -21,13 +21,15 @@ export interface AppSettings {
   appearance: 'system' | Scheme;
   ripples: boolean;
   refraction: number;
+  blur: number;
+  thickness: number;
   profile: GlassProfile;
   hud: boolean;
   batterySaver: boolean;
 }
 
 const DEFAULTS: AppSettings = {
-  material: 'glass', appearance: 'dark', ripples: true, refraction: 1, profile: 'classic',
+  material: 'glass', appearance: 'dark', ripples: true, refraction: 1, blur: 1, thickness: 1, profile: 'classic',
   hud: typeof window !== 'undefined' && window.innerWidth > 900, // the HUD would cover the ledger on a phone
   batterySaver: false, // a demo exists to show the glass; opt in to the low-battery fallback
 };
@@ -67,10 +69,10 @@ export function App() {
   const material: Tier = reducedTransparency ? 'flat' : settings.material;
   const rendererSettings = useMemo(
     () => ({
-      ripples: settings.ripples, refraction: settings.refraction, profile: settings.profile,
-      reducedMotion, shadowAmount: scheme === 'dark' ? 0.30 : 0.18,
+      ripples: settings.ripples, refraction: settings.refraction, blur: settings.blur, thickness: settings.thickness,
+      profile: settings.profile, reducedMotion, shadowAmount: scheme === 'dark' ? 0.30 : 0.18,
     }),
-    [settings.ripples, settings.refraction, settings.profile, reducedMotion, scheme],
+    [settings.ripples, settings.refraction, settings.blur, settings.thickness, settings.profile, reducedMotion, scheme],
   );
 
   return (

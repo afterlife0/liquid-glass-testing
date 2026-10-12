@@ -6,6 +6,16 @@ body { background: #dfe1e5; color: #111; }
 }
 .lab-head strong { font-size: 16px; }
 .lab-head a { margin-left: auto; color: #1d4ed8; }
+.lab-tune-btn {
+  height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.7); font: 600 13px var(--font); color: #111; cursor: pointer;
+}
+.lab-tune {
+  position: absolute; top: 54px; right: 20px; width: min(300px, calc(100vw - 24px));
+  padding: 12px 14px; display: grid; gap: 10px; color: #111; font-size: 13px;
+}
+.lab .lab-tune.glass.tier-frost { background: rgba(250, 250, 252, 0.82); backdrop-filter: blur(18px) saturate(1.5); }
+.lab-tune .btn-small { justify-self: start; color: #111; border-color: rgba(0, 0, 0, 0.15); background: rgba(255, 255, 255, 0.6); }
 .lab-profile { background: rgba(0, 0, 0, 0.08); }
 .lab-profile .seg-opt { padding: 5px 10px; font-size: 12.5px; white-space: nowrap; }
 .lab-glass { position: absolute; cursor: grab; touch-action: none; user-select: none; }
@@ -31,6 +41,7 @@ body { background: #dfe1e5; color: #111; }
 @media (max-width: 759px) {
   .lab-head { left: 12px; right: 12px; top: 8px; gap: 10px; font-size: 12px; }
   .lab-head span { display: none; }
+  .lab-tune { top: 48px; right: 12px; }
 }
 /* Tier B fallback on the lab's light scenes (the app's frost token is dark). */
 .lab .glass.tier-frost { background: rgba(250, 250, 252, 0.55); border-color: rgba(255, 255, 255, 0.7); }

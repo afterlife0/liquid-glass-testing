@@ -45,7 +45,7 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
 .glass.tier-frost,
 .app:not([data-tier="flat"]) .surface-b {
   background: var(--frost);
-  backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(calc(18px * var(--glass-blur, 1))) saturate(1.5);
   border: 1px solid var(--frost-border);
   contain: paint;                  /* stops the compositor re-reading the whole page */
 }
@@ -240,6 +240,10 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
 }
 .popover.shown { transform: none; opacity: 1; }
 .popover-body { padding: 12px 14px 14px; display: grid; gap: 8px; border-radius: 11px; } /* concentric: 20 − 9 */
+.popover { display: flex; flex-direction: column; }      /* maxHeight set inline: a tall popover scrolls on a phone */
+/* The settings themselves keep the house blur: the Blur setting must not make its own controls unreadable. */
+.popover.glass.tier-frost { backdrop-filter: blur(18px) saturate(1.5); }
+.popover > .popover-body { min-height: 0; overflow-y: auto; }
 .popover h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-top: 4px; }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 3px; border-radius: 10px; background: var(--field); }
 .seg-opt { text-align: center; padding: 6px 4px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; }
@@ -248,7 +252,8 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
 .seg-opt.disabled { opacity: 0.45; cursor: not-allowed; }
 .seg-opt:has(input:focus-visible) { outline: 2px solid var(--accent-label); }
 .row { display: flex; align-items: center; gap: 8px; }
-.row.slider input { flex: 1; }
+.row.slider input { flex: 1; min-width: 0; }
+.slider-label { width: 74px; flex: none; }
 .row output { font-variant-numeric: tabular-nums; width: 36px; text-align: right; }
 .note { margin: 0; font-size: 12px; }
 

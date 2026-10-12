@@ -7,9 +7,11 @@ material for an Electron + Vite accounting app (TypeScript, React, Chromium 120+
 
 **Glass Lab** (`lab.html`) recreates the WWDC25 reference scenes — colour-wheel drop, capsule over text,
 toolbar over a list and photo, controls over dark video, alert over flowers. Every element is draggable.
-Its header toggles the rim between this project's **Classic rim** and the **Recovered optics** ported from macOS 26
-(press <kbd>O</kbd> to flip, or open `lab.html?profile=optics`); the dashboard has the same toggle under Settings.
-See [`docs/reverse-engineering/liquid-glass.md`](docs/reverse-engineering/liquid-glass.md) §8.
+Its **Tune** panel switches the rim between this project's **Classic rim** and the **Recovered optics** ported from
+macOS 26 (see [`docs/reverse-engineering/liquid-glass.md`](docs/reverse-engineering/liquid-glass.md) §8), and has
+**Blur** (× the backdrop blur radii, 0–2.5) and **Thickness** (× the bevel, 0.25–2.5; the corner radius still caps it)
+sliders. <kbd>O</kbd> flips the rim, and `lab.html?profile=optics&blur=1.5&thickness=2` opens it already tuned. The
+dashboard has the same controls under Settings → Glass, saved with the other settings. Blur also drives Tier B's CSS frost.
 
 ![Glass Lab](docs/screenshots/glass-lab.png)
 

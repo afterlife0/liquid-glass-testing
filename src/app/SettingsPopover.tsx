@@ -1,7 +1,9 @@
 import { RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useGlass, useGlassState } from '../glass/GlassContext';
 import { GlassPanel } from '../glass/GlassPanel';
+import { SETTING_RANGES } from '../glass/GlassRenderer';
 import type { AppSettings } from './App';
+import { Slider } from './controls';
 
 /**
  * Anchored growth: the popover's near corner is pinned to the button that
@@ -58,7 +60,7 @@ export function SettingsPopover({ open, anchor, onClose, settings, setSettings, 
       className={`popover ${shown ? 'shown' : ''}`}
       z={25}
       elRef={ref}
-      style={{ top: pos.top, right: pos.right }}
+      style={{ top: pos.top, right: pos.right, maxHeight: `calc(100dvh - ${pos.top + 12}px)` }}
       role="dialog"
       aria-label="Appearance settings"
       onTransitionEnd={e => { if (e.propertyName === 'transform' && !open) setMounted(false); }}
@@ -80,21 +82,26 @@ export function SettingsPopover({ open, anchor, onClose, settings, setSettings, 
           <Radio k="appearance" v="system" label="System" />
         </div>
 
+        <h3>Glass</h3>
+        <Slider label="Refraction" {...SETTING_RANGES.refraction} value={settings.refraction} disabled={tier !== 'glass'}
+          onChange={v => setSettings({ refraction: v })} />
+        <Slider label="Blur" {...SETTING_RANGES.blur} value={settings.blur} disabled={tier === 'flat'}
+          onChange={v => setSettings({ blur: v })} />
+        <Slider label="Thickness" {...SETTING_RANGES.thickness} value={settings.thickness} disabled={tier !== 'glass'}
+          onChange={v => setSettings({ thickness: v })} />
+        <div className="seg" role="radiogroup" aria-label="Rim optics">
+          <Radio k="profile" v="classic" label="Classic rim" disabled={tier !== 'glass'} />
+          <Radio k="profile" v="optics" label="Recovered optics" disabled={tier !== 'glass'} />
+        </div>
+        <button type="button" className="btn-small" onClick={() => setSettings({ refraction: 1, blur: 1, thickness: 1, profile: 'classic' })}>
+          Reset glass
+        </button>
+
         <h3>Motion</h3>
         <label className="row">
           <input type="checkbox" checked={settings.ripples} onChange={e => setSettings({ ripples: e.target.checked })} />
           Touch ripples <small className="muted">(Shift+click = firm tap)</small>
         </label>
-        <label className="row slider">
-          Refraction
-          <input type="range" min={0} max={2} step={0.05} value={settings.refraction} disabled={tier !== 'glass'}
-            onChange={e => setSettings({ refraction: +e.target.value })} />
-          <output>{settings.refraction.toFixed(2)}</output>
-        </label>
-        <div className="seg" role="radiogroup" aria-label="Rim optics">
-          <Radio k="profile" v="classic" label="Classic rim" disabled={tier !== 'glass'} />
-          <Radio k="profile" v="optics" label="Recovered optics" disabled={tier !== 'glass'} />
-        </div>
 
         <h3>Diagnostics</h3>
         <label className="row">

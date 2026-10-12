@@ -105,11 +105,21 @@ export type GlassProfile = 'classic' | 'optics';
 
 export interface RendererSettings {
   refraction: number;   // 1 = tuned default
+  blur: number;         // × the backdrop blur radii (BLUR_CSS_PX, CLEAR_CSS_PX); 1 = tuned default
+  thickness: number;    // × the bevel; 1 = tuned default. The corner radius still caps it (bug #1)
   ripples: boolean;
   reducedMotion: boolean;
   shadowAmount: number;
   profile: GlassProfile;
 }
+
+/** Slider ranges for the user-tunable multipliers. Blur stops at 2.5: past ~2.9 the
+ *  quarter-res gaussian at DPR 2 outgrows its 24-tap kernel. */
+export const SETTING_RANGES = {
+  refraction: { min: 0, max: 2, step: 0.05 },
+  blur: { min: 0, max: 2.5, step: 0.05 },
+  thickness: { min: 0.25, max: 2.5, step: 0.05 },
+} as const;
 
 interface GL {
   gl: WebGL2RenderingContext;
@@ -121,7 +131,9 @@ interface GL {
 
 export class GlassRenderer {
   readonly surfaces = new Set<Surface>();
-  settings: RendererSettings = { refraction: 1, ripples: true, reducedMotion: false, shadowAmount: SHADOW_AMOUNT, profile: 'classic' };
+  settings: RendererSettings = {
+    refraction: 1, blur: 1, thickness: 1, ripples: true, reducedMotion: false, shadowAmount: SHADOW_AMOUNT, profile: 'classic',
+  };
   onStats: ((s: RendererStats) => void) | null = null;
   onContextChange: ((ok: boolean) => void) | null = null;
 
@@ -256,7 +268,11 @@ export class GlassRenderer {
   setPan(cssPx: number) { if (cssPx !== this.pan) { this.pan = cssPx; this.markSceneDirty(); } }
   setDim(v: number) { this.dim.set(v); this.wake(); }
   markSceneDirty() { this.sceneDirty = true; this.wake(); }
-  updateSettings(s: Partial<RendererSettings>) { this.settings = { ...this.settings, ...s }; this.wake(); }
+  updateSettings(s: Partial<RendererSettings>) {
+    if (s.blur !== undefined && s.blur !== this.settings.blur) this.sceneDirty = true; // the blur chain only reruns when dirty
+    this.settings = { ...this.settings, ...s };
+    this.wake();
+  }
 
   /** Register a per-frame callback (tweens). It keeps the loop awake until it returns false. */
   animate(fn: (nowMs: number) => boolean): () => void { this.animators.add(fn); this.wake(); return () => { this.animators.delete(fn); }; }
@@ -367,7 +383,8 @@ export class GlassRenderer {
     // scene composite + blur chain, only when the backdrop moved
     const didScene = this.sceneDirty;
     if (this.sceneDirty) {
-      g.scene.render(this.pan * dpr, this.dim.value, BLUR_CSS_PX, CLEAR_CSS_PX, dpr);
+      const b = this.settings.blur;
+      g.scene.render(this.pan * dpr, this.dim.value, BLUR_CSS_PX * b, CLEAR_CSS_PX * b, dpr);
       this.sceneDirty = false;
       this.stats.sceneRenders++;
     }
@@ -490,7 +507,7 @@ export class GlassRenderer {
     gl.uniform1i(u.uN, shapes.length);
     gl.uniform1f(u.uK, s.k * dpr);
     gl.uniform1f(u.uNexp, cornerExponent(r0, s0.hw, s0.hh));
-    const thick = bevelThickness(s0.hw, s0.hh, r0);
+    const thick = bevelThickness(s0.hw, s0.hh, r0, this.settings.thickness);
     const k = this.settings.refraction;
     gl.uniform1f(u.uThick, thick * dpr);
     gl.uniform1f(u.uEdge, thick * EDGE_REACH * dpr * k);

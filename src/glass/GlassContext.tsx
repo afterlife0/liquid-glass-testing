@@ -42,6 +42,10 @@ export function GlassProvider({ preferred, settings, batterySaver = true, childr
   }, [want]);
 
   useEffect(() => { renderer?.updateSettings(settings); }, [renderer, settings]);
+  // Tier B's CSS frost follows the same Blur setting as the canvas.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--glass-blur', String(settings.blur ?? 1));
+  }, [settings.blur]);
   useEffect(() => {
     if (!batterySaver) { setLowBattery(false); return; }
     return watchBattery(setLowBattery);
